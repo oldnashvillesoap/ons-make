@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artisan Recipe Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden { display: none; }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800 font-sans">
+
+    <div id="auth-section" class="min-vh-100 flex items-center justify-center pt-20">
+        <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md border border-stone-200">
+            <h1 class="text-2xl font-serif font-bold mb-6 text-center text-stone-700">Business Login</h1>
+            <input type="email" id="email" placeholder="Email" class="w-full p-2 mb-4 border rounded">
+            <input type="password" id="password" placeholder="Password" class="w-full p-2 mb-6 border rounded">
+            <button id="login-btn" class="w-full bg-stone-700 text-white py-2 rounded hover:bg-stone-600 transition">Sign In</button>
+        </div>
+    </div>
+
+    <div id="app-section" class="hidden">
+        <nav class="bg-white border-b p-4 flex justify-between items-center shadow-sm">
+            <span class="font-serif font-bold text-xl text-stone-700">Product Recipes</span>
+            <button id="logout-btn" class="text-sm text-red-600 hover:underline">Log Out</button>
+        </nav>
+
+        <main class="max-w-4xl mx-auto p-6">
+            <section class="bg-white p-6 rounded-lg shadow-sm border border-stone-200 mb-8">
+                <h2 class="text-lg font-bold mb-4">Add New Formulation</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="text" id="recipe-name" placeholder="Product Name (e.g. Lavender Goat Milk Soap)" class="p-2 border rounded">
+                    <input type="text" id="recipe-category" placeholder="Category (Soap, Balm, etc.)" class="p-2 border rounded">
+                    <textarea id="recipe-ingredients" placeholder="Ingredients & Weights" class="p-2 border rounded md:col-span-2 h-24"></textarea>
+                    <button id="save-recipe" class="md:col-span-2 bg-emerald-700 text-white py-2 rounded hover:bg-emerald-600 transition">Save Recipe</button>
+                </div>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-bold mb-4 italic text-stone-600">Your Recipe Archive</h2>
+                <div id="recipe-list" class="grid gap-4">
+                    <p class="text-stone-400">Loading your recipes...</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script type="module">
+        // 1. IMPORT FIREBASE SDKS
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // 2. CONFIGURATION (Replace with your actual Firebase project info)
+        const firebaseConfig = {
+          apiKey: "AIzaSyBH91Vcu_Tyti6f6o3pKkb-M7n4GHHDdHo",
+          authDomain: "ons-make.firebaseapp.com",
+          projectId: "ons-make",
+          storageBucket: "ons-make.firebasestorage.app",
+          messagingSenderId: "568456661543",
+          appId: "1:568456661543:web:64b56a5aab02c46f469c02",
+          measurementId: "G-DMNVE4F7ZC"
+        };
+
+        // 3. INITIALIZE
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // UI ELEMENTS
+        const authSection = document.getElementById('auth-section');
+        const appSection = document.getElementById('app-section');
+        const recipeList = document.getElementById('recipe-list');
+
+        // 4. AUTHENTICATION LOGIC
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                authSection.classList.add('hidden');
+                appSection.classList.remove('hidden');
+                loadRecipes(); // Fetch data when user is verified
+            } else {
+                authSection.classList.remove('hidden');
+                appSection.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('login-btn').onclick = () => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            signInWithEmailAndPassword(auth, email, pass).catch(err => alert(err.message));
+        };
+
+        document.getElementById('logout-btn').onclick = () => signOut(auth);
+
+        // 5. DATABASE LOGIC (Firestore)
+        async function loadRecipes() {
+            const q = query(collection(db, "recipes"), orderBy("name"));
+            onSnapshot(q, (snapshot) => {
+                recipeList.innerHTML = '';
+                snapshot.forEach((doc) => {
+                    const r = doc.data();
+                    recipeList.innerHTML += `
+                        <div class="bg-white p-4 rounded border-l-4 border-emerald-500 shadow-sm">
+                            <h3 class="font-bold text-stone-700">${r.name} <span class="text-xs font-normal text-stone-400 ml-2">(${r.category})</span></h3>
+                            <p class="text-sm mt-2 whitespace-pre-wrap text-stone-600">${r.ingredients}</p>
+                        </div>
+                    `;
+                });
+            });
+        }
+
+        document.getElementById('save-recipe').onclick = async () => {
+            const name = document.getElementById('recipe-name').value;
+            const category = document.getElementById('recipe-category').value;
+            const ingredients = document.getElementById('recipe-ingredients').value;
+
+            if(name && ingredients) {
+                await addDoc(collection(db, "recipes"), {
+                    name, category, ingredients, 
+                    createdAt: new Date()
+                });
+                // Clear inputs
+                document.getElementById('recipe-name').value = '';
+                document.getElementById('recipe-ingredients').value = '';
+            }
+        };
+    </script>
+</body>
+</html>
