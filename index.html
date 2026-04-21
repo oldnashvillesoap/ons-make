@@ -1,3 +1,71 @@
-<h1>ONS-MAKE</h1>
-<p>ONS-MAKE is a tool for creating and managing ONS (Open Network Service) instances. It provides a user-friendly interface for configuring and deploying ONS instances, as well as monitoring their performance and status.</p>
-<p>With ONS-MAKE, users can easily set up and customize their ONS instances
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ONS Make</title>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-icon">🧴</span>
+        <div>
+          <div class="brand-name">ONS Make</div>
+          <div class="brand-sub">Soap &amp; Cosmetics</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" data-view="dashboard">
+          <span class="material-icons">dashboard</span>Dashboard
+        </a>
+        <a href="#" class="nav-item" data-view="inventory">
+          <span class="material-icons">inventory_2</span>Inventory
+        </a>
+        <a href="#" class="nav-item" data-view="recipes">
+          <span class="material-icons">menu_book</span>Recipes
+        </a>
+        <a href="#" class="nav-item" data-view="batches">
+          <span class="material-icons">science</span>Batches
+        </a>
+        <a href="#" class="nav-item" data-view="transactions">
+          <span class="material-icons">receipt_long</span>Transactions
+        </a>
+      </nav>
+    </aside>
+
+    <main class="main" id="main">
+      <div class="loading-screen">
+        <span class="material-icons spin">refresh</span>
+        <p>Connecting…</p>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay hidden" id="modal-overlay">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h3 id="modal-title"></h3>
+        <button class="btn-icon" id="modal-close"><span class="material-icons">close</span></button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="modal-footer" id="modal-footer">
+        <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
+        <button class="btn btn-primary" id="modal-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast hidden" id="toast"></div>
+
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
