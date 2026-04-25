@@ -4,6 +4,8 @@
 
 'use strict';
 
+const PRODUCT_CATEGORIES = ['Bar Soap','Bath Salts','Deodorant','Lip Balm','Pet Soap','Shampoo Bar','Sugar Scrub'];
+
 // ─── STATE ──────────────────────────────────────────────────
 const state = {
   inventory:    [],
@@ -531,7 +533,12 @@ function inventoryForm(item) {
     <div class="form-row">
       <div class="form-group">
         <label>Category</label>
-        <input id="f-category" type="text" value="${escHtml(d.category||'')}" placeholder="e.g. oil, chemical, soap">
+        <select id="f-category">
+          <option value="">— Select category —</option>
+          ${PRODUCT_CATEGORIES.map(c =>
+            `<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`
+          ).join('')}
+        </select>
       </div>
       <div class="form-group">
         <label>Purchase Unit</label>
@@ -735,7 +742,7 @@ function recipeForm(r) {
         <label>Category</label>
         <select id="f-category">
           <option value="">— Select category —</option>
-          ${['Bar Soap','Lip Balm','Deodorant','Pet Soap','Shampoo Bar','Sugar Scrub'].map(c =>
+          ${PRODUCT_CATEGORIES.map(c =>
             `<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`
           ).join('')}
         </select>
