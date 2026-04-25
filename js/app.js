@@ -1072,6 +1072,7 @@ window.openBatchEdit = function (id) {
   openModal('Edit Batch', batchForm(b), () => saveBatch(id), true);
   setupBatchFormSearch(b);
   if (!b.ingredients_locked) refreshIngredientRows('batch');
+  updateCostSummary('batch');
 };
 
 function setupBatchFormSearch(b) {
@@ -1205,9 +1206,9 @@ function batchForm(b) {
       </table>
     </div>
     <div class="cost-summary" style="margin-top:16px">
-      <div class="cost-row"><span>Total Batch Cost</span><span>${fmtCur(d.total_batch_cost)}</span></div>
+      <div class="cost-row"><span>Total Batch Cost</span><span id="cs-batch">${fmtCur(d.total_batch_cost)}</span></div>
       <div class="cost-row total"><span>Cost per Unit</span>
-        <span>${(d.yield_quantity||0) > 0 ? fmtCur((d.total_batch_cost||0) / d.yield_quantity) : '—'}</span>
+        <span id="cs-unit">${(d.yield_quantity||0) > 0 ? fmtCur((d.total_batch_cost||0) / d.yield_quantity) : '—'}</span>
       </div>
     </div>` : `
     <label>Actual Ingredients Used</label>
