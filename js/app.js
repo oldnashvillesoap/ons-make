@@ -362,22 +362,24 @@ function invValue(type) {
 }
 
 function renderDashboard() {
-  const lowStock = state.inventory.filter(i => (i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0));
+  const lowStockSort = (a, b) => (a.stock_on_hand ?? 0) - (b.stock_on_hand ?? 0) || (a.name || '').localeCompare(b.name || '');
+  const lowStockRaw  = state.inventory.filter(i => i.type === 'raw_material' && (i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0)).sort(lowStockSort);
+  const lowStockFin  = state.inventory.filter(i => i.type === 'finished_product' && (i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0)).sort(lowStockSort);
+  const lowStock     = [...lowStockRaw, ...lowStockFin];
   const active   = state.batches.filter(b => b.status === 'in_progress' || b.status === 'curing');
   const recent   = [...state.batches].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5);
   const rawVal      = invValue('raw_material');
   const wipVal      = invValue('wip');
   const finishedVal = invValue('finished_product');
 
-  const lowStockRows = lowStock.length
-    ? lowStock.map(i => `
+  const lowStockTableRows = items => items.length
+    ? items.map(i => `
         <tr>
           <td class="font-medium">${escHtml(i.name)}</td>
-          <td>${typeBadge(i.type)}</td>
           <td class="low-stock font-mono">${i.stock_on_hand ?? 0} ${escHtml(i.unit || '')}</td>
           <td class="text-muted font-mono">${i.reorder_threshold ?? 0} ${escHtml(i.unit || '')}</td>
         </tr>`).join('')
-    : `<tr><td colspan="4" class="text-center text-muted" style="padding:24px">All stock levels are healthy</td></tr>`;
+    : `<tr><td colspan="3" class="text-center text-muted" style="padding:16px">None</td></tr>`;
 
   const recentRows = recent.length
     ? recent.map(b => `
@@ -441,13 +443,25 @@ function renderDashboard() {
         <span class="section-title">⚠ Low Stock Alerts</span>
         <span class="badge badge-${lowStock.length ? 'red' : 'green'}">${lowStock.length} item${lowStock.length !== 1 ? 's' : ''}</span>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>
-            <th>Item</th><th>Type</th><th>On Hand</th><th>Reorder At</th>
-          </tr></thead>
-          <tbody>${lowStockRows}</tbody>
-        </table>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div>
+          <div class="section-title" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px">Raw Materials</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Item</th><th>On Hand</th><th>Reorder At</th></tr></thead>
+              <tbody>${lowStockTableRows(lowStockRaw)}</tbody>
+            </table>
+          </div>
+        </div>
+        <div>
+          <div class="section-title" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px">Finished Products</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Item</th><th>On Hand</th><th>Reorder At</th></tr></thead>
+              <tbody>${lowStockTableRows(lowStockFin)}</tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1224,10 +1238,11 @@ function batchForm(b) {
     </div>
     <div class="table-wrap" style="border:1px solid var(--border);border-radius:8px">
       <table>
-        <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th style="text-align:right">Line Cost</th></tr></thead>
+        <thead><tr><th style="width:32px"></th><th>Item</th><th>Qty</th><th>Unit</th><th style="text-align:right">Line Cost</th></tr></thead>
         <tbody>
-          ${(d.ingredients||[]).map(ing => `
-            <tr>
+          ${(d.ingredients||[]).map((ing, idx) => `
+            <tr id="locked-ing-${idx}">
+              <td><input type="checkbox" onchange="document.getElementById('locked-ing-${idx}').classList.toggle('ingredient-done',this.checked)"></td>
               <td>${escHtml(ing.name||'')}</td>
               <td class="font-mono">${ing.quantity ?? ''}</td>
               <td>${escHtml(ing.unit||'')}</td>
@@ -1245,7 +1260,7 @@ function batchForm(b) {
     <label>Actual Ingredients Used</label>
     <div class="ingredient-section">
       <div class="ingredient-header">
-        <span>Item</span><span>Qty</span><span>Unit</span><span style="text-align:right">Line Cost</span><span></span>
+        <span></span><span>Item</span><span>Qty</span><span>Unit</span><span style="text-align:right">Line Cost</span><span></span>
       </div>
       <div id="ingredient-rows"></div>
       <button type="button" class="add-ingredient-btn" onclick="addIngredientRow('batch')">
@@ -1561,8 +1576,10 @@ function refreshIngredientRows(context) {
 
   const rawMats = state.inventory.filter(i => i.type === 'raw_material');
 
+  const isBatch = context === 'batch';
   container.innerHTML = _ingredients.map((ing, idx) => `
-    <div class="ingredient-row">
+    <div class="ingredient-row" id="ing-row-${idx}">
+      ${isBatch ? `<input type="checkbox" onchange="document.getElementById('ing-row-${idx}').classList.toggle('ingredient-done',this.checked)">` : '<span></span>'}
       <div class="search-select" id="ss-ing-${idx}"></div>
       <input type="number" min="0" step="any" value="${ing.quantity||''}" placeholder="Qty"
              oninput="_ingredients[${idx}].quantity=parseFloat(this.value)||0;updateIngredientCost(${idx},'${context}')">

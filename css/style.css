@@ -493,7 +493,7 @@ textarea { resize: vertical; min-height: 72px; }
 
 .ingredient-header {
   display: grid;
-  grid-template-columns: 2.5fr 1fr 80px 80px 32px;
+  grid-template-columns: 24px 2.5fr 1fr 80px 80px 32px;
   gap: 8px;
   padding: 0 0 6px;
   font-size: 10px;
@@ -505,13 +505,18 @@ textarea { resize: vertical; min-height: 72px; }
 
 .ingredient-row {
   display: grid;
-  grid-template-columns: 2.5fr 1fr 80px 80px 32px;
+  grid-template-columns: 24px 2.5fr 1fr 80px 80px 32px;
   gap: 8px;
   align-items: center;
   margin-bottom: 8px;
 }
 
 .ingredient-row input, .ingredient-row select, .ingredient-row .search-select { margin: 0; }
+
+.ingredient-row.ingredient-done > *:not(:first-child),
+tr.ingredient-done td:not(:first-child) { opacity: 0.4; text-decoration: line-through; }
+.ingredient-row.ingredient-done input[type="checkbox"],
+tr.ingredient-done td:first-child { opacity: 1; text-decoration: none; }
 
 /* ─── TABLE TOOLBAR ─── */
 .table-toolbar {
