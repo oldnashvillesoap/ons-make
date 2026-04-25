@@ -347,12 +347,19 @@ function buildSearchSelect({ containerId, placeholder, items, selectedId, onSele
 }
 
 // ─── DASHBOARD ──────────────────────────────────────────────
+function invValue(type) {
+  return state.inventory
+    .filter(i => i.type === type)
+    .reduce((s, i) => s + (i.stock_on_hand ?? 0) * (i.cost_per_unit ?? 0), 0);
+}
+
 function renderDashboard() {
-  const raw      = state.inventory.filter(i => i.type === 'raw_material');
-  const finished = state.inventory.filter(i => i.type === 'finished_product');
   const lowStock = state.inventory.filter(i => (i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0));
   const active   = state.batches.filter(b => b.status === 'in_progress' || b.status === 'curing');
   const recent   = [...state.batches].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5);
+  const rawVal      = invValue('raw_material');
+  const wipVal      = invValue('wip');
+  const finishedVal = invValue('finished_product');
 
   const lowStockRows = lowStock.length
     ? lowStock.map(i => `
@@ -387,14 +394,21 @@ function renderDashboard() {
       <div class="card stat-card">
         <div>
           <div class="stat-label">Raw Materials</div>
-          <div class="stat-value">${raw.length}</div>
+          <div class="stat-value stat-value-currency">${fmtCur(rawVal)}</div>
         </div>
         <div class="stat-icon blue"><span class="material-icons">science</span></div>
       </div>
       <div class="card stat-card">
         <div>
-          <div class="stat-label">Finished Products</div>
-          <div class="stat-value">${finished.length}</div>
+          <div class="stat-label">WIP</div>
+          <div class="stat-value stat-value-currency">${fmtCur(wipVal)}</div>
+        </div>
+        <div class="stat-icon amber"><span class="material-icons">pending</span></div>
+      </div>
+      <div class="card stat-card">
+        <div>
+          <div class="stat-label">Finished Goods</div>
+          <div class="stat-value stat-value-currency">${fmtCur(finishedVal)}</div>
         </div>
         <div class="stat-icon green"><span class="material-icons">inventory_2</span></div>
       </div>
@@ -403,7 +417,7 @@ function renderDashboard() {
           <div class="stat-label">Low Stock Items</div>
           <div class="stat-value" style="color:${lowStock.length ? 'var(--danger)' : 'inherit'}">${lowStock.length}</div>
         </div>
-        <div class="stat-icon amber"><span class="material-icons">warning</span></div>
+        <div class="stat-icon red"><span class="material-icons">warning</span></div>
       </div>
       <div class="card stat-card">
         <div>

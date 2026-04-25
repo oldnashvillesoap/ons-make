@@ -220,7 +220,7 @@ body {
 /* ─── STAT GRID ─── */
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
 }
@@ -246,6 +246,11 @@ body {
   font-weight: 700;
   letter-spacing: -1.5px;
   line-height: 1;
+}
+
+.stat-value-currency {
+  font-size: 22px;
+  letter-spacing: -0.5px;
 }
 
 .stat-icon {
