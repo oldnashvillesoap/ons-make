@@ -1,7 +1,7 @@
 // Replace these values with your Firebase project configuration.
 // Find them at: Firebase Console → Project Settings → Your apps → SDK setup
 const firebaseConfig = {
-  apiKey: "AIzaSyBH91Vcu_Tyti6f6o3pKkb-M7n4GHHDdHo",
+  apiKey: "__api_key__",
   authDomain: "ons-make.firebaseapp.com",
   projectId: "ons-make",
   storageBucket: "ons-make.firebasestorage.app",
