@@ -141,6 +141,20 @@ async function adjustStock(itemId, delta) {
   });
 }
 
+// Increment stock and weighted-average the unit cost for additions.
+async function addStockWeighted(itemId, qty, costPerUnit) {
+  if (!itemId || !(qty > 0)) return;
+  const item         = state.inventory.find(i => i.id === itemId);
+  const currentStock = Math.max(0, item?.stock_on_hand ?? 0);
+  const currentCpu   = item?.cost_per_unit ?? 0;
+  const newStock     = currentStock + qty;
+  const update = { stock_on_hand: firebase.firestore.FieldValue.increment(+qty) };
+  if (costPerUnit > 0) {
+    update.cost_per_unit = +((currentStock * currentCpu + qty * costPerUnit) / newStock).toFixed(4);
+  }
+  await db.collection('inventory_items').doc(itemId).update(update);
+}
+
 async function recordItemTransaction(type, itemId, itemName, unit, qty, costPerUnit, reason, batchId, date) {
   if (!itemId || !(qty > 0)) return;
   await addDoc('inventory_transactions', {
@@ -151,7 +165,11 @@ async function recordItemTransaction(type, itemId, itemName, unit, qty, costPerU
     total_cost:    +(qty * costPerUnit).toFixed(4),
     reason, batch_id: batchId, date,
   });
-  await adjustStock(itemId, type === 'addition' ? +qty : -qty);
+  if (type === 'addition') {
+    await addStockWeighted(itemId, +qty, costPerUnit);
+  } else {
+    await adjustStock(itemId, -qty);
+  }
 }
 
 async function deductBatchIngredients(ingredients, batchId, date) {
@@ -174,7 +192,7 @@ async function reverseBatchIngredients(ingredients, batchId, date) {
       cost_per_unit: ing.cost_per_unit || 0, total_cost: ing.line_cost || 0,
       reason: 'production reversal', batch_id: batchId, date,
     });
-    await adjustStock(ing.item_id, ing.quantity);
+    await addStockWeighted(ing.item_id, ing.quantity, ing.cost_per_unit || 0);
   }
 }
 
