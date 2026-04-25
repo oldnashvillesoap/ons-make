@@ -1,0 +1,13 @@
+{
+  "name": "ons-migrate",
+  "version": "1.0.0",
+  "description": "One-time SQLite → Firestore migration for ONS Make",
+  "main": "migrate.js",
+  "scripts": {
+    "migrate": "node migrate.js",
+    "dry-run": "node migrate.js --dry-run"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}

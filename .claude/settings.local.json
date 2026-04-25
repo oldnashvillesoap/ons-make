@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sqlite3 \"c:/Users/dillj/OneDrive/Source/ons-make/migrate/ons.sqlite\" \"SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;\")",
+      "Bash(sqlite3 \"c:/Users/dillj/OneDrive/Source/ons-make/migrate/ons.sqlite\" \"SELECT DISTINCT INVENTORYTYPE, COUNT\\(*\\) as cnt FROM ONS_MATERIALS WHERE IFNULL\\(DELETED,0\\)=0 GROUP BY INVENTORYTYPE;\")",
+      "Bash(sqlite3 \"c:/Users/dillj/OneDrive/Source/ons-make/migrate/ons.sqlite\" \"SELECT ID,NAME,INVENTORYTYPE,MATERIALGROUP,UNIT_INV,UNIT_PRD,CONV_PRD,ONHANDQTY_INV,UNITCOST_INV FROM ONS_MATERIALS WHERE IFNULL\\(DELETED,0\\)=0 LIMIT 10;\")",
+      "Bash(sqlite3 \"c:/Users/dillj/OneDrive/Source/ons-make/migrate/ons.sqlite\" \"SELECT COUNT\\(*\\), IFNULL\\(DELETED,0\\) as del FROM ONS_BILLOFMATERIAL GROUP BY del;\")",
+      "Bash(sqlite3 \"c:/Users/dillj/OneDrive/Source/ons-make/migrate/ons.sqlite\" \"SELECT MASTER_ID, MASTER_REC_ID, MATERIAL, QTY_PRD, COST FROM ONS_BILLOFMATERIAL WHERE IFNULL\\(DELETED,0\\)=0 LIMIT 15;\")"
+    ]
+  }
+}

@@ -25,6 +25,8 @@ Represents all items in inventory — raw materials or finished goods.
   "type": "finished_product",
   "category": "soap",
   "unit": "bars",
+  "production_unit": "bars",
+  "conversion_factor": 1,
   "stock_on_hand": 100,
   "reorder_threshold": 50,
   "cost_per_unit": 1.20,
@@ -35,17 +37,27 @@ Represents all items in inventory — raw materials or finished goods.
 
 ```json
 {
-  "name": "Lye (NaOH)",
+  "name": "Olive Oil",
   "type": "raw_material",
-  "category": "chemical",
-  "unit": "g",
-  "stock_on_hand": 2000,
-  "reorder_threshold": 500,
-  "cost_per_unit": 0.02,
+  "category": "oil",
+  "unit": "gal",
+  "production_unit": "g",
+  "conversion_factor": 3785,
+  "stock_on_hand": 5,
+  "reorder_threshold": 1,
+  "cost_per_unit": 12.00,
   "currency": "USD",
-  "supplier": "ChemCo"
+  "supplier": "BulkOils",
+  "notes": ""
 }
 ```
+
+| Field | Description |
+|-------|-------------|
+| `unit` | Purchase unit (e.g. `gal`, `lb`) — used for stock tracking and ordering |
+| `production_unit` | Unit used in recipe ingredients (e.g. `g`, `ml`). Defaults to `unit` if omitted |
+| `conversion_factor` | How many production units per purchase unit (e.g. `3785` for gal→g). Defaults to `1` |
+| `cost_per_unit` | Cost per **purchase** unit. The app derives cost-per-production-unit as `cost_per_unit / conversion_factor` |
 
 ---
 
@@ -151,7 +163,7 @@ Audit trail of all stock movements.
 ## 💡 Key Design Notes
 
 - **All costs are snapshotted** at time of write — preserves historical accuracy.
-- **`inventory_items`** unifies raw + finished goods** — simplifies stock management.
+- **`inventory_items`** unifies raw + finished goods — simplifies stock management.
 - **Batches capture actuals**, not just recipe estimates — supports adjustments.
 - **Transactions are immutable** — full audit trail for inventory changes.
 - **Denormalized names** (e.g., `item_name`) avoid extra lookups for common views.
