@@ -556,6 +556,23 @@ textarea { resize: vertical; min-height: 72px; }
 }
 .toolbar-search input::placeholder { color: var(--text-muted); }
 
+/* ─── CHECKBOX LABEL ─── */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  cursor: pointer;
+  font-size: 13.5px;
+}
+.checkbox-label input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .row-cost {
   font-size: 12px;
   color: var(--text-muted);

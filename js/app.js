@@ -731,6 +731,16 @@ window.openRecipeEdit = function (id) {
 };
 
 function setupRecipeFormSearch(r) {
+  if (document.getElementById('ss-copy-from')) {
+    buildSearchSelect({
+      containerId: 'ss-copy-from',
+      placeholder: 'Search recipes…',
+      items: state.recipes.map(x => ({ id: x.id, label: x.name })),
+      selectedId: '',
+      onSelect: id => onCopyFromRecipe(id),
+    });
+  }
+
   buildSearchSelect({
     containerId: 'ss-recipe-wip',
     placeholder: 'Search WIP products…',
@@ -753,6 +763,49 @@ function setupRecipeFormSearch(r) {
   });
 }
 
+window.onCopyFromRecipe = function(recipeId) {
+  const source = state.recipes.find(x => x.id === recipeId);
+  if (!source) return;
+
+  const nameEl = document.getElementById('f-name');
+  if (nameEl && !nameEl.value) nameEl.value = source.name;
+
+  const catEl = document.getElementById('f-category');
+  if (catEl) catEl.value = source.category || '';
+
+  const yieldQtyEl = document.getElementById('f-yield-qty');
+  if (yieldQtyEl) yieldQtyEl.value = source.yield_quantity ?? '';
+
+  const yieldUnitEl = document.getElementById('f-yield-unit');
+  if (yieldUnitEl) yieldUnitEl.value = source.yield_unit || '';
+
+  const notesEl = document.getElementById('f-notes');
+  if (notesEl) notesEl.value = source.notes || '';
+
+  _ingredients = (source.ingredients || []).map(i => ({ ...i }));
+  refreshIngredientRows('recipe');
+  updateCostSummary('recipe');
+
+  // Rebuild product selects with source's selections
+  buildSearchSelect({
+    containerId: 'ss-recipe-wip',
+    placeholder: 'Search WIP products…',
+    items: state.inventory.filter(i => i.type === 'wip').map(i => ({ id: i.id, label: i.name })),
+    selectedId: source.wip_product_id || '',
+    onSelect: () => {},
+  });
+  buildSearchSelect({
+    containerId: 'ss-recipe-finished',
+    placeholder: 'Search finished products…',
+    items: state.inventory.filter(i => i.type === 'finished_product').map(i => ({ id: i.id, label: i.name })),
+    selectedId: source.finished_product_id || '',
+    onSelect: id => {
+      const item = state.inventory.find(i => i.id === id);
+      if (item) { const el = document.getElementById('f-yield-unit'); if (el) el.value = item.unit || ''; }
+    },
+  });
+};
+
 window.deleteRecipe = async function (id, name) {
   if (!confirm(`Delete recipe "${name}"?`)) return;
   try {
@@ -767,6 +820,12 @@ window.deleteRecipe = async function (id, name) {
 function recipeForm(r) {
   const d = r || {};
   return `
+    ${!r ? `
+    <div class="form-group">
+      <label>Copy from existing recipe <span class="text-muted" style="font-weight:400;text-transform:none">(optional)</span></label>
+      <div class="search-select" id="ss-copy-from"></div>
+    </div>
+    <div class="divider"></div>` : ''}
     <div class="form-row">
       <div class="form-group">
         <label>Recipe Name</label>
@@ -821,41 +880,75 @@ function recipeForm(r) {
       <div class="cost-row"><span>Estimated Batch Cost</span><span id="cs-batch">$0.00</span></div>
       <div class="cost-row total"><span>Cost per Unit</span><span id="cs-unit">$0.00</span></div>
     </div>
-    ${r ? `<div style="margin-top:16px;text-align:right">
+    ${!r ? `
+    <div class="divider"></div>
+    <div class="form-group">
+      <label>Auto-create materials</label>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+        <label class="checkbox-label">
+          <input type="checkbox" id="chk-create-wip">
+          <span>Create WIP material <span class="text-muted">(type: WIP, unit: batch)</span></span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="chk-create-finished">
+          <span>Create Finished Goods material <span class="text-muted">(type: Finished, unit: from yield)</span></span>
+        </label>
+      </div>
+    </div>` : `
+    <div style="margin-top:16px;text-align:right">
       <button class="btn btn-danger" onclick="deleteRecipe('${r.id}','${escHtml(r.name)}')">
         <span class="material-icons">delete</span>Delete Recipe
       </button>
-    </div>` : ''}`;
+    </div>`}`;
 }
 
 async function saveRecipe(id) {
   const name = val('f-name').trim();
   if (!name) { toast('Name is required', 'error'); return; }
   collectIngredientInputs();
-  const yieldQty = numVal('f-yield-qty');
+  const yieldQty  = numVal('f-yield-qty');
+  const yieldUnit = val('f-yield-unit').trim();
+  const category  = val('f-category').trim();
   const totalCost = _ingredients.reduce((s, i) => s + (i.line_cost || 0), 0);
-  const wipId        = document.querySelector('#ss-recipe-wip .ss-value')?.value      || '';
-  const finishedId   = document.querySelector('#ss-recipe-finished .ss-value')?.value || '';
-  const wipItem      = state.inventory.find(i => i.id === wipId);
-  const finishedItem = state.inventory.find(i => i.id === finishedId);
+
+  let wipId      = document.querySelector('#ss-recipe-wip .ss-value')?.value      || '';
+  let finishedId = document.querySelector('#ss-recipe-finished .ss-value')?.value || '';
+  let wipName      = state.inventory.find(i => i.id === wipId)?.name      || '';
+  let finishedName = state.inventory.find(i => i.id === finishedId)?.name || '';
+
+  // Auto-create materials (new recipes only)
+  if (!id) {
+    const baseItem = { stock_on_hand: 0, reorder_threshold: 0, cost_per_unit: 0, category };
+    if (document.getElementById('chk-create-wip')?.checked && !wipId) {
+      wipId   = await addDoc('inventory_items', { ...baseItem, name, type: 'wip', unit: 'batch', production_unit: 'batch' });
+      wipName = name;
+    }
+    if (document.getElementById('chk-create-finished')?.checked && !finishedId) {
+      const unit = yieldUnit || 'each';
+      finishedId   = await addDoc('inventory_items', { ...baseItem, name, type: 'finished_product', unit, production_unit: unit });
+      finishedName = name;
+    }
+  }
+
   const data = {
     name,
-    category:              val('f-category').trim(),
-    yield_quantity:        yieldQty,
-    yield_unit:            val('f-yield-unit').trim(),
-    notes:                 val('f-notes').trim(),
-    ingredients:           _ingredients,
-    estimated_batch_cost:  +totalCost.toFixed(4),
+    category,
+    yield_quantity:          yieldQty,
+    yield_unit:              yieldUnit,
+    notes:                   val('f-notes').trim(),
+    ingredients:             _ingredients,
+    estimated_batch_cost:    +totalCost.toFixed(4),
     estimated_cost_per_unit: yieldQty > 0 ? +(totalCost / yieldQty).toFixed(4) : 0,
-    wip_product_id:        wipId,
-    wip_product_name:      wipItem?.name || '',
-    finished_product_id:   finishedId,
-    finished_product_name: finishedItem?.name || '',
+    wip_product_id:          wipId,
+    wip_product_name:        wipName,
+    finished_product_id:     finishedId,
+    finished_product_name:   finishedName,
   };
   try {
     if (id) { await updateDoc('recipes', id, data); }
     else    { await addDoc('recipes', data); }
     await reload('recipes');
+    await reload('inventory_items');
     toast(id ? 'Recipe updated' : 'Recipe created');
     closeModal();
     navigate('recipes');
@@ -1389,8 +1482,11 @@ async function saveTransaction() {
     await addDoc('inventory_transactions', data);
     if (data.type === 'addition') {
       await adjustStock(itemEl.value, qty);
-      await reload('inventory_items');
+      if (costPerUnit > 0) {
+        await updateDoc('inventory_items', itemEl.value, { cost_per_unit: costPerUnit });
+      }
     }
+    await reload('inventory_items');
     await reload('inventory_transactions');
     toast('Transaction recorded');
     closeModal();
