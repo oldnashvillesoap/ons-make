@@ -1066,8 +1066,9 @@ async function saveBatch(id) {
   const scale          = parseFloat(val('f-scale')) || 1;
   const yieldQty       = numVal('f-yield-qty');
   const yieldUnit      = val('f-yield-unit').trim();
-  const totalCost      = ingredients.reduce((s, i) => s + (i.line_cost || 0), 0);
-  const wipCostPerUnit = yieldQty > 0 ? totalCost / yieldQty : 0;
+  const totalCost          = ingredients.reduce((s, i) => s + (i.line_cost || 0), 0);
+  const wipCostPerUnit     = scale > 0    ? totalCost / scale    : 0;
+  const finishedCostPerUnit = yieldQty > 0 ? totalCost / yieldQty : 0;
 
   const recipe       = state.recipes.find(r => r.id === recipeId);
   const finishedItem = state.inventory.find(i => i.id === finishedId);
@@ -1090,9 +1091,10 @@ async function saveBatch(id) {
     finished_product_name:   finishedItem?.name || '',
     wip_product_id:          wipId,
     wip_product_name:        wipItem?.name || '',
-    wip_quantity:            yieldQty,
-    wip_unit:                yieldUnit,
+    wip_quantity:            scale,
+    wip_unit:                'batch',
     wip_cost_per_unit:       +wipCostPerUnit.toFixed(4),
+    finished_cost_per_unit:  +finishedCostPerUnit.toFixed(4),
     ingredients_locked:      newStatus === 'curing' || newStatus === 'complete',
   };
 
@@ -1107,24 +1109,25 @@ async function saveBatch(id) {
     // ── in_progress → curing: deduct raw mats, add WIP ──────
     if (oldStatus === 'in_progress' && newStatus === 'curing') {
       await deductBatchIngredients(ingredients, batchId, now);
-      if (wipItem) await recordItemTransaction('addition', wipId, wipItem.name, wipItem.unit || yieldUnit, yieldQty, wipCostPerUnit, 'wip – batch curing', batchId, now);
+      if (wipItem) await recordItemTransaction('addition', wipId, wipItem.name, wipItem.unit || 'batch', scale, wipCostPerUnit, 'wip – batch curing', batchId, now);
       inventoryChanged = true;
     }
 
     // ── curing → complete: deduct WIP, add finished ──────────
     if (oldStatus === 'curing' && newStatus === 'complete') {
-      const storedQty = oldBatch.wip_quantity  || yieldQty;
-      const storedCpu = oldBatch.wip_cost_per_unit || wipCostPerUnit;
-      const storedUnit = oldBatch.wip_unit || yieldUnit;
-      if (wipItem)      await recordItemTransaction('deduction', wipId,       wipItem.name,       wipItem.unit      || storedUnit, storedQty, storedCpu, 'wip → finished',      batchId, now);
-      if (finishedItem) await recordItemTransaction('addition',  finishedId,  finishedItem.name,  finishedItem.unit || storedUnit, storedQty, storedCpu, 'production complete', batchId, now);
+      const storedWipQty  = oldBatch.wip_quantity      || scale;
+      const storedWipCpu  = oldBatch.wip_cost_per_unit  || wipCostPerUnit;
+      const storedWipUnit = oldBatch.wip_unit           || 'batch';
+      const finCpu        = oldBatch.finished_cost_per_unit || finishedCostPerUnit;
+      if (wipItem)      await recordItemTransaction('deduction', wipId,      wipItem.name,      wipItem.unit      || storedWipUnit, storedWipQty, storedWipCpu, 'wip → finished',      batchId, now);
+      if (finishedItem) await recordItemTransaction('addition',  finishedId, finishedItem.name, finishedItem.unit || yieldUnit,     yieldQty,     finCpu,       'production complete', batchId, now);
       inventoryChanged = true;
     }
 
     // ── in_progress → complete (skip curing): deduct raw mats, add finished ──
     if (oldStatus === 'in_progress' && newStatus === 'complete') {
       await deductBatchIngredients(ingredients, batchId, now);
-      if (finishedItem) await recordItemTransaction('addition', finishedId, finishedItem.name, finishedItem.unit || yieldUnit, yieldQty, wipCostPerUnit, 'production complete', batchId, now);
+      if (finishedItem) await recordItemTransaction('addition', finishedId, finishedItem.name, finishedItem.unit || yieldUnit, yieldQty, finishedCostPerUnit, 'production complete', batchId, now);
       inventoryChanged = true;
     }
 
@@ -1140,13 +1143,15 @@ async function saveBatch(id) {
 
     // ── complete → curing: deduct finished, add WIP back ────
     if (oldStatus === 'complete' && newStatus === 'curing') {
-      const storedQty  = oldBatch.wip_quantity     || yieldQty;
-      const storedCpu  = oldBatch.wip_cost_per_unit || wipCostPerUnit;
-      const storedUnit = oldBatch.wip_unit          || yieldUnit;
-      const prevFinId   = oldBatch.finished_product_id || finishedId;
-      const prevFinItem = state.inventory.find(i => i.id === prevFinId);
-      if (prevFinItem) await recordItemTransaction('deduction', prevFinId,  prevFinItem.name, prevFinItem.unit || storedUnit, storedQty, storedCpu, 'reversal – uncomplete',    batchId, now);
-      if (wipItem)     await recordItemTransaction('addition',  wipId,      wipItem.name,     wipItem.unit     || storedUnit, storedQty, storedCpu, 'reversal – back to curing', batchId, now);
+      const storedWipQty  = oldBatch.wip_quantity      || scale;
+      const storedWipCpu  = oldBatch.wip_cost_per_unit  || wipCostPerUnit;
+      const storedWipUnit = oldBatch.wip_unit           || 'batch';
+      const prevFinQty    = oldBatch.yield_quantity     || yieldQty;
+      const prevFinCpu    = oldBatch.finished_cost_per_unit || finishedCostPerUnit;
+      const prevFinId     = oldBatch.finished_product_id || finishedId;
+      const prevFinItem   = state.inventory.find(i => i.id === prevFinId);
+      if (prevFinItem) await recordItemTransaction('deduction', prevFinId, prevFinItem.name, prevFinItem.unit || yieldUnit,     prevFinQty,    prevFinCpu,   'reversal – uncomplete',    batchId, now);
+      if (wipItem)     await recordItemTransaction('addition',  wipId,     wipItem.name,     wipItem.unit     || storedWipUnit, storedWipQty,  storedWipCpu, 'reversal – back to curing', batchId, now);
       inventoryChanged = true;
     }
 
