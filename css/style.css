@@ -329,6 +329,7 @@ tbody td {
 
 /* ─── FORMS ─── */
 .form-group { margin-bottom: 16px; }
+.form-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
 
 .form-row {
   display: grid;

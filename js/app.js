@@ -71,6 +71,37 @@ async function deleteDoc(col, id) {
   await db.collection(col).doc(id).delete();
 }
 
+async function adjustStock(itemId, delta) {
+  if (!itemId || delta === 0) return;
+  await db.collection('inventory_items').doc(itemId).update({
+    stock_on_hand: firebase.firestore.FieldValue.increment(+delta),
+  });
+}
+
+async function deductBatchIngredients(ingredients, batchId, date) {
+  for (const ing of ingredients.filter(i => i.item_id && (i.quantity || 0) > 0)) {
+    await addDoc('inventory_transactions', {
+      type: 'deduction', item_id: ing.item_id, item_name: ing.name,
+      quantity: ing.quantity, unit: ing.unit,
+      cost_per_unit: ing.cost_per_unit || 0, total_cost: ing.line_cost || 0,
+      reason: 'production', batch_id: batchId, date,
+    });
+    await adjustStock(ing.item_id, -(ing.quantity));
+  }
+}
+
+async function reverseBatchIngredients(ingredients, batchId, date) {
+  for (const ing of ingredients.filter(i => i.item_id && (i.quantity || 0) > 0)) {
+    await addDoc('inventory_transactions', {
+      type: 'addition', item_id: ing.item_id, item_name: ing.name,
+      quantity: ing.quantity, unit: ing.unit,
+      cost_per_unit: ing.cost_per_unit || 0, total_cost: ing.line_cost || 0,
+      reason: 'production reversal', batch_id: batchId, date,
+    });
+    await adjustStock(ing.item_id, ing.quantity);
+  }
+}
+
 async function loadAll() {
   const [inv, rec, bat, txn] = await Promise.all([
     getCollection('inventory_items'),
@@ -154,6 +185,16 @@ function escHtml(s) {
 }
 function val(id) { return (document.getElementById(id) || {}).value || ''; }
 function numVal(id) { return parseFloat(val(id)) || 0; }
+
+function batchAge(dateStr) {
+  if (!dateStr) return '—';
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  if (days < 0)   return '—';
+  if (days < 7)   return `${days}d`;
+  if (days < 60)  return `${Math.floor(days / 7)}wk`;
+  if (days < 730) return `${Math.floor(days / 30.44)}mo`;
+  return `${Math.floor(days / 365.25)}yr`;
+}
 
 function batchStatusBadge(status) {
   const map = { in_progress: 'blue', curing: 'amber', complete: 'green', failed: 'red' };
@@ -446,8 +487,30 @@ async function saveInventoryItem(id) {
     notes:             val('f-notes').trim(),
   };
   try {
-    if (id) { await updateDoc('inventory_items', id, data); }
-    else    { await addDoc('inventory_items', data); }
+    if (id) {
+      const oldItem = state.inventory.find(i => i.id === id);
+      const oldQty  = oldItem?.stock_on_hand ?? 0;
+      const newQty  = data.stock_on_hand;
+      await updateDoc('inventory_items', id, data);
+      if (oldQty !== newQty) {
+        const delta = newQty - oldQty;
+        await addDoc('inventory_transactions', {
+          type:          delta > 0 ? 'addition' : 'deduction',
+          item_id:       id,
+          item_name:     data.name,
+          quantity:      Math.abs(delta),
+          unit:          data.unit,
+          cost_per_unit: data.cost_per_unit,
+          total_cost:    +Math.abs(delta * data.cost_per_unit).toFixed(4),
+          reason:        'reconciliation',
+          batch_id:      '',
+          date:          new Date().toISOString().slice(0, 10),
+        });
+        await reload('inventory_transactions');
+      }
+    } else {
+      await addDoc('inventory_items', data);
+    }
     await reload('inventory_items');
     toast(id ? 'Item updated' : 'Item added');
     closeModal();
@@ -612,6 +675,7 @@ function renderBatches() {
         <tr>
           <td class="font-medium">${escHtml(b.recipe_name || '—')}</td>
           <td class="text-muted">${escHtml(b.date || '—')}</td>
+          <td class="font-mono text-muted">${batchAge(b.date)}</td>
           <td>${batchStatusBadge(b.status)}</td>
           <td class="font-mono">${b.yield_quantity ?? '—'} ${escHtml(b.yield_unit||'')}</td>
           <td class="font-mono">${fmtCur(b.total_batch_cost)}</td>
@@ -641,7 +705,7 @@ function renderBatches() {
       <div class="table-wrap">
         <table>
           <thead><tr>
-            <th>Recipe</th><th>Date</th><th>Status</th><th>Yield</th>
+            <th>Recipe</th><th>Date</th><th>Age</th><th>Status</th><th>Yield</th>
             <th>Batch Cost</th><th>Cost / Unit</th><th></th>
           </tr></thead>
           <tbody>${rows}</tbody>
@@ -662,7 +726,7 @@ window.openBatchEdit = function (id) {
   if (!b) return;
   _ingredients = (b.ingredients || []).map(i => ({ ...i }));
   openModal('Edit Batch', batchForm(b), () => saveBatch(id), true);
-  refreshIngredientRows('batch');
+  if (!b.ingredients_locked) refreshIngredientRows('batch');
 };
 
 window.deleteBatch = async function (id, name) {
@@ -693,6 +757,7 @@ function batchForm(b) {
       <div class="form-group">
         <label>Date</label>
         <input id="f-date" type="date" value="${escHtml(d.date || new Date().toISOString().slice(0,10))}">
+        ${d.date ? `<div class="form-hint">Age: ${batchAge(d.date)}</div>` : ''}
       </div>
     </div>
     <div class="form-row">
@@ -730,6 +795,33 @@ function batchForm(b) {
       <textarea id="f-notes">${escHtml(d.notes||'')}</textarea>
     </div>
     <div class="divider"></div>
+    ${d.ingredients_locked ? `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <label style="margin:0">Actual Ingredients Used</label>
+      <span class="badge badge-amber" style="display:inline-flex;align-items:center;gap:3px">
+        <span class="material-icons" style="font-size:13px">lock</span>Locked
+      </span>
+    </div>
+    <div class="table-wrap" style="border:1px solid var(--border);border-radius:8px">
+      <table>
+        <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th style="text-align:right">Line Cost</th></tr></thead>
+        <tbody>
+          ${(d.ingredients||[]).map(ing => `
+            <tr>
+              <td>${escHtml(ing.name||'')}</td>
+              <td class="font-mono">${ing.quantity ?? ''}</td>
+              <td>${escHtml(ing.unit||'')}</td>
+              <td class="font-mono" style="text-align:right">${fmtCur(ing.line_cost)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="cost-summary" style="margin-top:16px">
+      <div class="cost-row"><span>Total Batch Cost</span><span>${fmtCur(d.total_batch_cost)}</span></div>
+      <div class="cost-row total"><span>Cost per Unit</span>
+        <span>${(d.yield_quantity||0) > 0 ? fmtCur((d.total_batch_cost||0) / d.yield_quantity) : '—'}</span>
+      </div>
+    </div>` : `
     <label>Actual Ingredients Used</label>
     <div class="ingredient-section">
       <div class="ingredient-header">
@@ -743,7 +835,7 @@ function batchForm(b) {
     <div id="cost-summary" class="cost-summary" style="margin-top:16px">
       <div class="cost-row"><span>Total Batch Cost</span><span id="cs-batch">$0.00</span></div>
       <div class="cost-row total"><span>Cost per Unit</span><span id="cs-unit">$0.00</span></div>
-    </div>`;
+    </div>`}`;
 }
 
 window.onRecipeSelect = function (sel) {
@@ -760,32 +852,56 @@ window.onRecipeSelect = function (sel) {
 };
 
 async function saveBatch(id) {
-  const recipeEl = document.getElementById('f-recipe');
-  const finishedEl = document.getElementById('f-finished');
-  collectIngredientInputs();
-  const yieldQty = numVal('f-yield-qty');
-  const totalCost = _ingredients.reduce((s, i) => s + (i.line_cost || 0), 0);
-  const finishedItem = state.inventory.find(i => i.id === finishedEl?.value);
+  const recipeEl    = document.getElementById('f-recipe');
+  const finishedEl  = document.getElementById('f-finished');
+  const newStatus   = val('f-status');
+  const oldBatch    = id ? state.batches.find(x => x.id === id) : null;
+  const wasLocked   = oldBatch?.ingredients_locked || false;
+  const lockingNow  = (newStatus === 'curing' || newStatus === 'complete') && !wasLocked;
+  const unlockingNow= newStatus === 'in_progress' && wasLocked;
+
+  // When locked, preserve server ingredients; otherwise collect from form
+  let ingredients;
+  if (wasLocked) {
+    ingredients = oldBatch.ingredients || [];
+  } else {
+    collectIngredientInputs();
+    ingredients = _ingredients;
+  }
+
+  const yieldQty    = numVal('f-yield-qty');
+  const totalCost   = ingredients.reduce((s, i) => s + (i.line_cost || 0), 0);
+  const finishedItem= state.inventory.find(i => i.id === finishedEl?.value);
   const data = {
     recipe_id:               recipeEl?.value || '',
     recipe_name:             recipeEl?.options[recipeEl.selectedIndex]?.dataset?.name || recipeEl?.options[recipeEl.selectedIndex]?.text || '',
     date:                    val('f-date'),
-    status:                  val('f-status'),
+    status:                  newStatus,
     notes:                   val('f-notes').trim(),
     yield_quantity:          yieldQty,
     yield_unit:              val('f-yield-unit').trim(),
-    ingredients:             _ingredients,
+    ingredients,
     total_batch_cost:        +totalCost.toFixed(4),
     cost_per_unit:           yieldQty > 0 ? +(totalCost / yieldQty).toFixed(4) : 0,
     finished_product_id:     finishedEl?.value || '',
     finished_product_name:   finishedItem?.name || '',
     finished_product_quantity: yieldQty,
     finished_product_unit:   val('f-yield-unit').trim(),
+    ingredients_locked:      lockingNow ? true : (unlockingNow ? false : wasLocked),
   };
   try {
+    const today = new Date().toISOString().slice(0, 10);
+    let batchId = id;
     if (id) { await updateDoc('batches', id, data); }
-    else    { await addDoc('batches', data); }
-    await reload('batches');
+    else    { batchId = await addDoc('batches', data); }
+
+    if (lockingNow)   await deductBatchIngredients(ingredients, batchId, today);
+    if (unlockingNow) await reverseBatchIngredients(ingredients, batchId, today);
+
+    await Promise.all([
+      reload('batches'),
+      ...(lockingNow || unlockingNow ? [reload('inventory_items'), reload('inventory_transactions')] : []),
+    ]);
     toast(id ? 'Batch updated' : 'Batch recorded');
     closeModal();
     navigate('batches');
@@ -942,6 +1058,10 @@ async function saveTransaction() {
   };
   try {
     await addDoc('inventory_transactions', data);
+    if (data.type === 'addition') {
+      await adjustStock(itemEl.value, qty);
+      await reload('inventory_items');
+    }
     await reload('inventory_transactions');
     toast('Transaction recorded');
     closeModal();
