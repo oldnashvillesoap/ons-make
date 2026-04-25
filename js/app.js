@@ -257,9 +257,10 @@ function batchStatusBadge(status) {
 }
 
 function typeBadge(type) {
-  return type === 'raw_material'
-    ? `<span class="badge badge-blue">Raw Material</span>`
-    : `<span class="badge badge-green">Finished</span>`;
+  if (type === 'raw_material')     return `<span class="badge badge-blue">Raw Material</span>`;
+  if (type === 'finished_product') return `<span class="badge badge-green">Finished</span>`;
+  if (type === 'wip')              return `<span class="badge badge-amber">WIP</span>`;
+  return `<span class="badge badge-gray">${escHtml(type || '—')}</span>`;
 }
 
 function txTypeBadge(type) {
@@ -452,6 +453,7 @@ function renderInventory() {
     <div class="tabs" id="inv-tabs">
       <button class="tab ${f==='all'?'active':''}" data-filter="all">All (${state.inventory.length})</button>
       <button class="tab ${f==='raw_material'?'active':''}" data-filter="raw_material">Raw Materials</button>
+      <button class="tab ${f==='wip'?'active':''}" data-filter="wip">WIP</button>
       <button class="tab ${f==='finished_product'?'active':''}" data-filter="finished_product">Finished Products</button>
     </div>
     <div class="card">
@@ -508,6 +510,7 @@ function inventoryForm(item) {
         <label>Type</label>
         <select id="f-type">
           <option value="raw_material"    ${d.type==='raw_material'?'selected':''}>Raw Material</option>
+          <option value="wip"             ${d.type==='wip'?'selected':''}>WIP</option>
           <option value="finished_product"${d.type==='finished_product'?'selected':''}>Finished Product</option>
         </select>
       </div>
@@ -662,6 +665,7 @@ function setupRecipeEvents() {}
 window.openRecipeAdd = function () {
   _ingredients = [];
   openModal('New Recipe', recipeForm(null), saveRecipe, true);
+  setupRecipeFormSearch(null);
 };
 
 window.openRecipeEdit = function (id) {
@@ -669,8 +673,24 @@ window.openRecipeEdit = function (id) {
   if (!r) return;
   _ingredients = (r.ingredients || []).map(ing => ({ ...ing }));
   openModal('Edit Recipe', recipeForm(r), () => saveRecipe(id), true);
+  setupRecipeFormSearch(r);
   refreshIngredientRows('recipe');
 };
+
+function setupRecipeFormSearch(r) {
+  buildSearchSelect({
+    containerId: 'ss-recipe-finished',
+    placeholder: 'Search finished products…',
+    items: state.inventory.filter(i => i.type === 'finished_product').map(i => ({ id: i.id, label: i.name })),
+    selectedId: r?.finished_product_id || '',
+    onSelect: id => {
+      const item = state.inventory.find(i => i.id === id);
+      if (!item) return;
+      const yieldUnit = document.getElementById('f-yield-unit');
+      if (yieldUnit) yieldUnit.value = item.unit || '';
+    },
+  });
+}
 
 window.deleteRecipe = async function (id, name) {
   if (!confirm(`Delete recipe "${name}"?`)) return;
@@ -698,13 +718,17 @@ function recipeForm(r) {
     </div>
     <div class="form-row">
       <div class="form-group">
+        <label>Finished Product</label>
+        <div class="search-select" id="ss-recipe-finished"></div>
+      </div>
+      <div class="form-group">
         <label>Yield Quantity</label>
         <input id="f-yield-qty" type="number" min="0" step="any" value="${d.yield_quantity??''}" oninput="updateCostSummary('recipe')">
       </div>
-      <div class="form-group">
-        <label>Yield Unit</label>
-        <input id="f-yield-unit" type="text" value="${escHtml(d.yield_unit||'')}" placeholder="e.g. bars, bottles">
-      </div>
+    </div>
+    <div class="form-group" style="max-width:50%;padding-right:6px">
+      <label>Yield Unit <span class="text-muted" style="font-weight:400;text-transform:none">(from finished product)</span></label>
+      <input id="f-yield-unit" type="text" value="${escHtml(d.yield_unit||'')}" placeholder="auto-filled on product select">
     </div>
     <div class="form-group">
       <label>Notes</label>
@@ -738,6 +762,8 @@ async function saveRecipe(id) {
   collectIngredientInputs();
   const yieldQty = numVal('f-yield-qty');
   const totalCost = _ingredients.reduce((s, i) => s + (i.line_cost || 0), 0);
+  const finishedId   = document.querySelector('#ss-recipe-finished .ss-value')?.value || '';
+  const finishedItem = state.inventory.find(i => i.id === finishedId);
   const data = {
     name,
     category:              val('f-category').trim(),
@@ -747,6 +773,8 @@ async function saveRecipe(id) {
     ingredients:           _ingredients,
     estimated_batch_cost:  +totalCost.toFixed(4),
     estimated_cost_per_unit: yieldQty > 0 ? +(totalCost / yieldQty).toFixed(4) : 0,
+    finished_product_id:   finishedId,
+    finished_product_name: finishedItem?.name || '',
   };
   try {
     if (id) { await updateDoc('recipes', id, data); }
