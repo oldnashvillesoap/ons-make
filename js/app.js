@@ -320,7 +320,7 @@ function renderInventory() {
 
   const rows = items.length
     ? items.map(i => `
-        <tr>
+        <tr class="clickable" ondblclick="openInventoryEdit('${i.id}')">
           <td class="font-medium">${escHtml(i.name)}</td>
           <td>${typeBadge(i.type)}</td>
           <td>${escHtml(i.category || '—')}</td>
@@ -504,7 +504,7 @@ async function saveInventoryItem(id) {
           total_cost:    +Math.abs(delta * data.cost_per_unit).toFixed(4),
           reason:        'reconciliation',
           batch_id:      '',
-          date:          new Date().toISOString().slice(0, 10),
+          date:          new Date().toISOString(),
         });
         await reload('inventory_transactions');
       }
@@ -672,7 +672,7 @@ function renderBatches() {
 
   const rows = batches.length
     ? batches.map(b => `
-        <tr>
+        <tr class="clickable" ondblclick="openBatchEdit('${b.id}')">
           <td class="font-medium">${escHtml(b.recipe_name || '—')}</td>
           <td class="text-muted">${escHtml(b.date || '—')}</td>
           <td class="font-mono text-muted">${batchAge(b.date)}</td>
@@ -890,13 +890,13 @@ async function saveBatch(id) {
     ingredients_locked:      lockingNow ? true : (unlockingNow ? false : wasLocked),
   };
   try {
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date().toISOString();
     let batchId = id;
     if (id) { await updateDoc('batches', id, data); }
     else    { batchId = await addDoc('batches', data); }
 
-    if (lockingNow)   await deductBatchIngredients(ingredients, batchId, today);
-    if (unlockingNow) await reverseBatchIngredients(ingredients, batchId, today);
+    if (lockingNow)   await deductBatchIngredients(ingredients, batchId, now);
+    if (unlockingNow) await reverseBatchIngredients(ingredients, batchId, now);
 
     await Promise.all([
       reload('batches'),
@@ -979,7 +979,7 @@ function transactionForm() {
       </div>
       <div class="form-group">
         <label>Date</label>
-        <input id="f-date" type="date" value="${new Date().toISOString().slice(0,10)}">
+        <input id="f-date" type="datetime-local" value="${new Date().toISOString().slice(0,16)}">
       </div>
     </div>
     <div class="form-group">
@@ -1054,7 +1054,7 @@ async function saveTransaction() {
     total_cost:    +(qty * costPerUnit).toFixed(4),
     reason:        val('f-reason').trim(),
     batch_id:      val('f-batch').trim(),
-    date:          val('f-date'),
+    date:          new Date(val('f-date')).toISOString(),
   };
   try {
     await addDoc('inventory_transactions', data);
