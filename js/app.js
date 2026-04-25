@@ -4,8 +4,16 @@
 
 'use strict';
 
-const PRODUCT_CATEGORIES     = ['Bar Soap','Bath Salts','Deodorant','Lip Balm','Pet Soap','Shampoo Bar','Sugar Scrub'];
+const PRODUCT_CATEGORIES      = ['Bar Soap','Bath Salts','Deodorant','Lip Balm','Pet Soap','Shampoo Bar','Sugar Scrub'];
 const RAW_MATERIAL_CATEGORIES = ['Additives','Chemicals','Colorant','Flavoring','Fragrance','Hard oils','Liquids','Liquid oils','Packaging','Preservative','Salt'];
+const UNITS = ['batch','each','gal','fl-oz','oz','lb'];
+
+function unitSelect(id, selected, attrs = '') {
+  return `<select id="${id}" ${attrs}>
+    <option value="">— Select unit —</option>
+    ${UNITS.map(u => `<option value="${u}" ${selected===u?'selected':''}>${u}</option>`).join('')}
+  </select>`;
+}
 
 // ─── STATE ──────────────────────────────────────────────────
 const state = {
@@ -597,13 +605,13 @@ function inventoryForm(item) {
       </div>
       <div class="form-group">
         <label>Purchase Unit</label>
-        <input id="f-unit" type="text" value="${escHtml(d.unit||'')}" placeholder="e.g. gal, oz, lb">
+        ${unitSelect('f-unit', d.unit||'')}
       </div>
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label>Production Unit <span class="text-muted" style="font-weight:400">(used in recipes)</span></label>
-        <input id="f-production-unit" type="text" value="${escHtml(d.production_unit||'')}" placeholder="e.g. g, ml — leave blank if same as purchase">
+        <label>Production Unit <span class="text-muted" style="font-weight:400">(used in recipes — leave blank if same as purchase)</span></label>
+        ${unitSelect('f-production-unit', d.production_unit||'')}
       </div>
       <div class="form-group">
         <label>Conversion <span class="text-muted" style="font-weight:400">(production ÷ purchase)</span></label>
@@ -923,7 +931,7 @@ function recipeForm(r) {
       </div>
       <div class="form-group">
         <label>Yield Unit <span class="text-muted" style="font-weight:400;text-transform:none">(from finished product)</span></label>
-        <input id="f-yield-unit" type="text" value="${escHtml(d.yield_unit||'')}" placeholder="auto-filled on product select">
+        ${unitSelect('f-yield-unit', d.yield_unit||'')}
       </div>
     </div>
     <div class="form-group">
@@ -1195,7 +1203,7 @@ function batchForm(b) {
       </div>
       <div class="form-group">
         <label>Yield Unit</label>
-        <input id="f-yield-unit" type="text" value="${escHtml(d.yield_unit||'')}" placeholder="e.g. bars">
+        ${unitSelect('f-yield-unit', d.yield_unit||'')}
       </div>
     </div>
     <div class="form-group">
@@ -1472,7 +1480,7 @@ function transactionForm() {
       </div>
       <div class="form-group">
         <label>Unit</label>
-        <input id="f-unit" type="text" readonly>
+        ${unitSelect('f-unit', '')}
       </div>
     </div>
     <div class="form-row">
