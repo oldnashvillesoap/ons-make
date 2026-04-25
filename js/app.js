@@ -630,47 +630,46 @@ async function saveInventoryItem(id) {
 function renderRecipes() {
   const recipes = [...state.recipes].sort((a,b) => (a.name||'').localeCompare(b.name||''));
 
-  if (!recipes.length) {
-    return `
-      <div class="page-header">
-        <div><div class="page-title">Recipes</div><div class="page-sub">Product formulas and cost estimates</div></div>
-        <button class="btn btn-primary" onclick="openRecipeAdd()"><span class="material-icons">add</span>New Recipe</button>
-      </div>
-      <div class="card"><div class="empty-state">
+  const rows = recipes.length
+    ? recipes.map(r => `
+        <tr class="clickable" ondblclick="openRecipeEdit('${r.id}')">
+          <td class="font-medium">${escHtml(r.name)}</td>
+          <td>${escHtml(r.category || '—')}</td>
+          <td class="text-muted">${escHtml(r.wip_product_name || '—')}</td>
+          <td class="text-muted">${escHtml(r.finished_product_name || '—')}</td>
+          <td class="font-mono">${r.yield_quantity ?? '—'} ${escHtml(r.yield_unit||'')}</td>
+          <td class="font-mono">${(r.ingredients||[]).length}</td>
+          <td class="font-mono">${fmtCur(r.estimated_batch_cost)}</td>
+          <td class="font-mono">${fmtCur(r.estimated_cost_per_unit)}</td>
+          <td>
+            <div class="actions">
+              <button class="btn-icon" onclick="openRecipeEdit('${r.id}')" title="Edit">
+                <span class="material-icons">edit</span>
+              </button>
+            </div>
+          </td>
+        </tr>`).join('')
+    : `<tr><td colspan="9"><div class="empty-state">
         <span class="material-icons">menu_book</span>
         <h3>No recipes yet</h3><p>Create your first recipe formula.</p>
-      </div></div>`;
-  }
-
-  const cards = recipes.map(r => `
-    <div class="card recipe-card" onclick="openRecipeEdit('${r.id}')">
-      <div class="recipe-card-name">${escHtml(r.name)}</div>
-      <div class="recipe-card-meta">
-        ${escHtml(r.category || 'Uncategorized')} &nbsp;·&nbsp;
-        ${(r.ingredients || []).length} ingredient${(r.ingredients||[]).length !== 1 ? 's' : ''}
-      </div>
-      <div class="recipe-card-footer">
-        <div>
-          <div class="recipe-stat-label">Yield</div>
-          <div class="recipe-stat-value">${r.yield_quantity ?? '—'} ${escHtml(r.yield_unit||'')}</div>
-        </div>
-        <div>
-          <div class="recipe-stat-label">Batch Cost</div>
-          <div class="recipe-stat-value">${fmtCur(r.estimated_batch_cost)}</div>
-        </div>
-        <div>
-          <div class="recipe-stat-label">Cost / Unit</div>
-          <div class="recipe-stat-value">${fmtCur(r.estimated_cost_per_unit)}</div>
-        </div>
-      </div>
-    </div>`).join('');
+       </div></td></tr>`;
 
   return `
     <div class="page-header">
       <div><div class="page-title">Recipes</div><div class="page-sub">Product formulas and cost estimates</div></div>
       <button class="btn btn-primary" onclick="openRecipeAdd()"><span class="material-icons">add</span>New Recipe</button>
     </div>
-    <div class="recipe-grid">${cards}</div>`;
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Name</th><th>Category</th><th>WIP Product</th><th>Finished Product</th>
+            <th>Yield</th><th>Ingredients</th><th>Batch Cost</th><th>Cost / Unit</th><th></th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
 function setupRecipeEvents() {}
