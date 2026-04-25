@@ -353,7 +353,7 @@ tbody td {
 .btn .material-icons { font-size: 16px; }
 
 .btn-primary { background: var(--primary); color: white; }
-.btn-primary:hover { background: #4338ca; }
+.btn-primary:hover { background: #047857; }
 
 .btn-ghost { background: transparent; color: var(--text-muted); border-color: var(--border); }
 .btn-ghost:hover { background: var(--bg); color: var(--text); }
