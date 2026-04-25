@@ -13,8 +13,14 @@ const state = {
   batches:      [],
   transactions: [],
   view: 'dashboard',
-  invFilter: 'all',
-  txFilter:  'all',
+  invFilter:    'all',
+  invSearch:    '',
+  recipeSearch: '',
+  recipeFilter: '',
+  batchSearch:  '',
+  batchFilter:  '',
+  txFilter:     'all',
+  txSearch:     '',
 };
 
 let db;
@@ -420,41 +426,36 @@ function renderDashboard() {
 }
 
 // ─── INVENTORY ──────────────────────────────────────────────
-function renderInventory() {
+function invRows() {
   const f = state.invFilter;
+  const q = state.invSearch.toLowerCase();
   const items = state.inventory
     .filter(i => f === 'all' || i.type === f)
+    .filter(i => !q || (i.name||'').toLowerCase().includes(q) || (i.category||'').toLowerCase().includes(q) || (i.supplier||'').toLowerCase().includes(q))
     .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  if (!items.length) return `<tr><td colspan="8"><div class="empty-state"><span class="material-icons">inventory_2</span><h3>No items found</h3><p>Add your first inventory item to get started.</p></div></td></tr>`;
+  return items.map(i => `
+    <tr class="clickable" ondblclick="openInventoryEdit('${i.id}')">
+      <td class="font-medium">${escHtml(i.name)}</td>
+      <td>${typeBadge(i.type)}</td>
+      <td>${escHtml(i.category || '—')}</td>
+      <td class="font-mono ${(i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0) ? 'low-stock' : ''}">
+        ${i.stock_on_hand ?? 0} ${escHtml(i.unit || '')}
+      </td>
+      <td class="font-mono text-muted">${i.reorder_threshold ?? 0} ${escHtml(i.unit || '')}</td>
+      <td class="font-mono">${fmtCur(i.cost_per_unit)}/${escHtml(i.unit||'unit')}${i.production_unit && i.production_unit !== i.unit ? `<br><span class="text-muted" style="font-size:11px">${fmtCur(i.cost_per_unit / (i.conversion_factor||1))}/${escHtml(i.production_unit)}</span>` : ''}</td>
+      <td>${escHtml(i.supplier || '—')}</td>
+      <td>
+        <div class="actions">
+          <button class="btn-icon" onclick="openInventoryEdit('${i.id}')" title="Edit"><span class="material-icons">edit</span></button>
+          <button class="btn-icon danger" onclick="deleteInventoryItem('${i.id}','${escHtml(i.name)}')" title="Delete"><span class="material-icons">delete</span></button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
 
-  const rows = items.length
-    ? items.map(i => `
-        <tr class="clickable" ondblclick="openInventoryEdit('${i.id}')">
-          <td class="font-medium">${escHtml(i.name)}</td>
-          <td>${typeBadge(i.type)}</td>
-          <td>${escHtml(i.category || '—')}</td>
-          <td class="font-mono ${(i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0) ? 'low-stock' : ''}">
-            ${i.stock_on_hand ?? 0} ${escHtml(i.unit || '')}
-          </td>
-          <td class="font-mono text-muted">${i.reorder_threshold ?? 0} ${escHtml(i.unit || '')}</td>
-          <td class="font-mono">${fmtCur(i.cost_per_unit)}/${escHtml(i.unit||'unit')}${i.production_unit && i.production_unit !== i.unit ? `<br><span class="text-muted" style="font-size:11px">${fmtCur(i.cost_per_unit / (i.conversion_factor||1))}/${escHtml(i.production_unit)}</span>` : ''}</td>
-          <td>${escHtml(i.supplier || '—')}</td>
-          <td>
-            <div class="actions">
-              <button class="btn-icon" onclick="openInventoryEdit('${i.id}')" title="Edit">
-                <span class="material-icons">edit</span>
-              </button>
-              <button class="btn-icon danger" onclick="deleteInventoryItem('${i.id}','${escHtml(i.name)}')" title="Delete">
-                <span class="material-icons">delete</span>
-              </button>
-            </div>
-          </td>
-        </tr>`).join('')
-    : `<tr><td colspan="8"><div class="empty-state">
-        <span class="material-icons">inventory_2</span>
-        <h3>No items found</h3>
-        <p>Add your first inventory item to get started.</p>
-       </div></td></tr>`;
-
+function renderInventory() {
+  const f = state.invFilter;
   return `
     <div class="page-header">
       <div>
@@ -472,13 +473,20 @@ function renderInventory() {
       <button class="tab ${f==='finished_product'?'active':''}" data-filter="finished_product">Finished Products</button>
     </div>
     <div class="card">
+      <div class="table-toolbar">
+        <div class="toolbar-filters"></div>
+        <div class="toolbar-search">
+          <span class="material-icons">search</span>
+          <input type="text" placeholder="Search name, category, supplier…" value="${escHtml(state.invSearch)}" oninput="onInvSearch(this.value)">
+        </div>
+      </div>
       <div class="table-wrap">
         <table>
           <thead><tr>
             <th>Name</th><th>Type</th><th>Category</th><th>On Hand</th>
             <th>Reorder At</th><th>Cost</th><th>Supplier</th><th></th>
           </tr></thead>
-          <tbody>${rows}</tbody>
+          <tbody id="inv-tbody">${invRows()}</tbody>
         </table>
       </div>
     </div>`;
@@ -492,6 +500,12 @@ function setupInventoryEvents() {
     navigate('inventory');
   });
 }
+
+window.onInvSearch = function(q) {
+  state.invSearch = q;
+  const el = document.getElementById('inv-tbody');
+  if (el) el.innerHTML = invRows();
+};
 
 window.openInventoryAdd = function () {
   openModal('Add Inventory Item', inventoryForm(null), saveInventoryItem);
@@ -634,52 +648,72 @@ async function saveInventoryItem(id) {
 }
 
 // ─── RECIPES ────────────────────────────────────────────────
+function recipeRows() {
+  const q = state.recipeSearch.toLowerCase();
+  const cf = state.recipeFilter;
+  const recipes = state.recipes
+    .filter(r => !cf || r.category === cf)
+    .filter(r => !q || (r.name||'').toLowerCase().includes(q) || (r.category||'').toLowerCase().includes(q) || (r.finished_product_name||'').toLowerCase().includes(q))
+    .sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  if (!recipes.length) return `<tr><td colspan="9"><div class="empty-state"><span class="material-icons">menu_book</span><h3>No recipes found</h3><p>Create your first recipe formula.</p></div></td></tr>`;
+  return recipes.map(r => `
+    <tr class="clickable" ondblclick="openRecipeEdit('${r.id}')">
+      <td class="font-medium">${escHtml(r.name)}</td>
+      <td>${escHtml(r.category || '—')}</td>
+      <td class="text-muted">${escHtml(r.wip_product_name || '—')}</td>
+      <td class="text-muted">${escHtml(r.finished_product_name || '—')}</td>
+      <td class="font-mono">${r.yield_quantity ?? '—'} ${escHtml(r.yield_unit||'')}</td>
+      <td class="font-mono">${(r.ingredients||[]).length}</td>
+      <td class="font-mono">${fmtCur(r.estimated_batch_cost)}</td>
+      <td class="font-mono">${fmtCur(r.estimated_cost_per_unit)}</td>
+      <td><div class="actions"><button class="btn-icon" onclick="openRecipeEdit('${r.id}')" title="Edit"><span class="material-icons">edit</span></button></div></td>
+    </tr>`).join('');
+}
+
 function renderRecipes() {
-  const recipes = [...state.recipes].sort((a,b) => (a.name||'').localeCompare(b.name||''));
-
-  const rows = recipes.length
-    ? recipes.map(r => `
-        <tr class="clickable" ondblclick="openRecipeEdit('${r.id}')">
-          <td class="font-medium">${escHtml(r.name)}</td>
-          <td>${escHtml(r.category || '—')}</td>
-          <td class="text-muted">${escHtml(r.wip_product_name || '—')}</td>
-          <td class="text-muted">${escHtml(r.finished_product_name || '—')}</td>
-          <td class="font-mono">${r.yield_quantity ?? '—'} ${escHtml(r.yield_unit||'')}</td>
-          <td class="font-mono">${(r.ingredients||[]).length}</td>
-          <td class="font-mono">${fmtCur(r.estimated_batch_cost)}</td>
-          <td class="font-mono">${fmtCur(r.estimated_cost_per_unit)}</td>
-          <td>
-            <div class="actions">
-              <button class="btn-icon" onclick="openRecipeEdit('${r.id}')" title="Edit">
-                <span class="material-icons">edit</span>
-              </button>
-            </div>
-          </td>
-        </tr>`).join('')
-    : `<tr><td colspan="9"><div class="empty-state">
-        <span class="material-icons">menu_book</span>
-        <h3>No recipes yet</h3><p>Create your first recipe formula.</p>
-       </div></td></tr>`;
-
   return `
     <div class="page-header">
       <div><div class="page-title">Recipes</div><div class="page-sub">Product formulas and cost estimates</div></div>
       <button class="btn btn-primary" onclick="openRecipeAdd()"><span class="material-icons">add</span>New Recipe</button>
     </div>
     <div class="card">
+      <div class="table-toolbar">
+        <div class="toolbar-filters">
+          <select onchange="onRecipeFilter(this.value)">
+            <option value="">All categories</option>
+            ${PRODUCT_CATEGORIES.map(c => `<option value="${c}" ${state.recipeFilter===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>
+        <div class="toolbar-search">
+          <span class="material-icons">search</span>
+          <input type="text" placeholder="Search name, category, product…" value="${escHtml(state.recipeSearch)}" oninput="onRecipeSearch(this.value)">
+        </div>
+      </div>
       <div class="table-wrap">
         <table>
           <thead><tr>
             <th>Name</th><th>Category</th><th>WIP Product</th><th>Finished Product</th>
             <th>Yield</th><th>Ingredients</th><th>Batch Cost</th><th>Cost / Unit</th><th></th>
           </tr></thead>
-          <tbody>${rows}</tbody>
+          <tbody id="recipe-tbody">${recipeRows()}</tbody>
         </table>
       </div>
     </div>`;
 }
 
 function setupRecipeEvents() {}
+
+window.onRecipeSearch = function(q) {
+  state.recipeSearch = q;
+  const el = document.getElementById('recipe-tbody');
+  if (el) el.innerHTML = recipeRows();
+};
+
+window.onRecipeFilter = function(v) {
+  state.recipeFilter = v;
+  const el = document.getElementById('recipe-tbody');
+  if (el) el.innerHTML = recipeRows();
+};
 
 window.openRecipeAdd = function () {
   _ingredients = [];
@@ -829,55 +863,80 @@ async function saveRecipe(id) {
 }
 
 // ─── BATCHES ────────────────────────────────────────────────
+function batchRows() {
+  const q = state.batchSearch.toLowerCase();
+  const sf = state.batchFilter;
+  const batches = state.batches
+    .filter(b => !sf || b.status === sf)
+    .filter(b => !q || (b.recipe_name||'').toLowerCase().includes(q) || (b.finished_product_name||'').toLowerCase().includes(q))
+    .sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  if (!batches.length) return `<tr><td colspan="9"><div class="empty-state"><span class="material-icons">science</span><h3>No batches found</h3><p>Record your first production run.</p></div></td></tr>`;
+  return batches.map(b => `
+    <tr class="clickable" ondblclick="openBatchEdit('${b.id}')">
+      <td class="font-medium">${escHtml(b.recipe_name || '—')}</td>
+      <td class="text-muted">${escHtml(b.date || '—')}</td>
+      <td class="font-mono text-muted">${batchAge(b.date)}</td>
+      <td>${batchStatusBadge(b.status)}</td>
+      <td class="font-mono text-muted">${b.scale != null ? b.scale + '×' : '1×'}</td>
+      <td class="font-mono">${b.yield_quantity ?? '—'} ${escHtml(b.yield_unit||'')}</td>
+      <td class="font-mono">${fmtCur(b.total_batch_cost)}</td>
+      <td class="font-mono">${fmtCur(b.cost_per_unit)}</td>
+      <td>
+        <div class="actions">
+          <button class="btn-icon" onclick="openBatchEdit('${b.id}')" title="Edit"><span class="material-icons">edit</span></button>
+          <button class="btn-icon danger" onclick="deleteBatch('${b.id}','${escHtml(b.recipe_name||'batch')}')" title="Delete"><span class="material-icons">delete</span></button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
 function renderBatches() {
-  const batches = [...state.batches].sort((a,b) => (b.date||'').localeCompare(a.date||''));
-
-  const rows = batches.length
-    ? batches.map(b => `
-        <tr class="clickable" ondblclick="openBatchEdit('${b.id}')">
-          <td class="font-medium">${escHtml(b.recipe_name || '—')}</td>
-          <td class="text-muted">${escHtml(b.date || '—')}</td>
-          <td class="font-mono text-muted">${batchAge(b.date)}</td>
-          <td>${batchStatusBadge(b.status)}</td>
-          <td class="font-mono text-muted">${b.scale != null ? b.scale + '×' : '1×'}</td>
-          <td class="font-mono">${b.yield_quantity ?? '—'} ${escHtml(b.yield_unit||'')}</td>
-          <td class="font-mono">${fmtCur(b.total_batch_cost)}</td>
-          <td class="font-mono">${fmtCur(b.cost_per_unit)}</td>
-          <td>
-            <div class="actions">
-              <button class="btn-icon" onclick="openBatchEdit('${b.id}')" title="Edit">
-                <span class="material-icons">edit</span>
-              </button>
-              <button class="btn-icon danger" onclick="deleteBatch('${b.id}','${escHtml(b.recipe_name||'batch')}')" title="Delete">
-                <span class="material-icons">delete</span>
-              </button>
-            </div>
-          </td>
-        </tr>`).join('')
-    : `<tr><td colspan="8"><div class="empty-state">
-        <span class="material-icons">science</span>
-        <h3>No batches yet</h3><p>Record your first production run.</p>
-       </div></td></tr>`;
-
   return `
     <div class="page-header">
       <div><div class="page-title">Batches</div><div class="page-sub">Production runs and actuals</div></div>
       <button class="btn btn-primary" onclick="openBatchAdd()"><span class="material-icons">add</span>New Batch</button>
     </div>
     <div class="card">
+      <div class="table-toolbar">
+        <div class="toolbar-filters">
+          <select onchange="onBatchFilter(this.value)">
+            <option value="">All statuses</option>
+            <option value="in_progress" ${state.batchFilter==='in_progress'?'selected':''}>In Progress</option>
+            <option value="curing"      ${state.batchFilter==='curing'?'selected':''}>Curing</option>
+            <option value="complete"    ${state.batchFilter==='complete'?'selected':''}>Complete</option>
+            <option value="failed"      ${state.batchFilter==='failed'?'selected':''}>Failed</option>
+          </select>
+        </div>
+        <div class="toolbar-search">
+          <span class="material-icons">search</span>
+          <input type="text" placeholder="Search recipe or product…" value="${escHtml(state.batchSearch)}" oninput="onBatchSearch(this.value)">
+        </div>
+      </div>
       <div class="table-wrap">
         <table>
           <thead><tr>
             <th>Recipe</th><th>Date</th><th>Age</th><th>Status</th><th>Scale</th><th>Yield</th>
             <th>Batch Cost</th><th>Cost / Unit</th><th></th>
           </tr></thead>
-          <tbody>${rows}</tbody>
+          <tbody id="batch-tbody">${batchRows()}</tbody>
         </table>
       </div>
     </div>`;
 }
 
 function setupBatchEvents() {}
+
+window.onBatchSearch = function(q) {
+  state.batchSearch = q;
+  const el = document.getElementById('batch-tbody');
+  if (el) el.innerHTML = batchRows();
+};
+
+window.onBatchFilter = function(v) {
+  state.batchFilter = v;
+  const el = document.getElementById('batch-tbody');
+  if (el) el.innerHTML = batchRows();
+};
 
 window.openBatchAdd = function () {
   _ingredients = [];
@@ -1166,28 +1225,28 @@ async function saveBatch(id) {
 }
 
 // ─── TRANSACTIONS ────────────────────────────────────────────
+function txRows() {
+  const f = state.txFilter;
+  const q = state.txSearch.toLowerCase();
+  const txns = state.transactions
+    .filter(t => f === 'all' || t.type === f)
+    .filter(t => !q || (t.item_name||'').toLowerCase().includes(q) || (t.reason||'').toLowerCase().includes(q))
+    .sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  if (!txns.length) return `<tr><td colspan="7"><div class="empty-state"><span class="material-icons">receipt_long</span><h3>No transactions</h3><p>Inventory movements will appear here.</p></div></td></tr>`;
+  return txns.map(t => `
+    <tr>
+      <td class="text-muted">${escHtml(t.date || '—')}</td>
+      <td>${txTypeBadge(t.type)}</td>
+      <td class="font-medium">${escHtml(t.item_name || '—')}</td>
+      <td class="font-mono">${t.quantity ?? '—'} ${escHtml(t.unit||'')}</td>
+      <td class="font-mono">${fmtCur(t.cost_per_unit)}</td>
+      <td class="font-mono font-medium">${fmtCur(t.total_cost)}</td>
+      <td class="text-muted">${escHtml(t.reason || '—')}</td>
+    </tr>`).join('');
+}
+
 function renderTransactions() {
   const f = state.txFilter;
-  const txns = [...state.transactions]
-    .filter(t => f === 'all' || t.type === f)
-    .sort((a,b) => (b.date||'').localeCompare(a.date||''));
-
-  const rows = txns.length
-    ? txns.map(t => `
-        <tr>
-          <td class="text-muted">${escHtml(t.date || '—')}</td>
-          <td>${txTypeBadge(t.type)}</td>
-          <td class="font-medium">${escHtml(t.item_name || '—')}</td>
-          <td class="font-mono">${t.quantity ?? '—'} ${escHtml(t.unit||'')}</td>
-          <td class="font-mono">${fmtCur(t.cost_per_unit)}</td>
-          <td class="font-mono font-medium">${fmtCur(t.total_cost)}</td>
-          <td class="text-muted">${escHtml(t.reason || '—')}</td>
-        </tr>`).join('')
-    : `<tr><td colspan="7"><div class="empty-state">
-        <span class="material-icons">receipt_long</span>
-        <h3>No transactions</h3><p>Inventory movements will appear here.</p>
-       </div></td></tr>`;
-
   return `
     <div class="page-header">
       <div><div class="page-title">Transactions</div><div class="page-sub">Inventory movement audit log</div></div>
@@ -1199,13 +1258,20 @@ function renderTransactions() {
       <button class="tab ${f==='deduction'?'active':''}" data-filter="deduction">Deductions</button>
     </div>
     <div class="card">
+      <div class="table-toolbar">
+        <div class="toolbar-filters"></div>
+        <div class="toolbar-search">
+          <span class="material-icons">search</span>
+          <input type="text" placeholder="Search item or reason…" value="${escHtml(state.txSearch)}" oninput="onTxSearch(this.value)">
+        </div>
+      </div>
       <div class="table-wrap">
         <table>
           <thead><tr>
             <th>Date</th><th>Type</th><th>Item</th><th>Quantity</th>
             <th>Cost/Unit</th><th>Total Cost</th><th>Reason</th>
           </tr></thead>
-          <tbody>${rows}</tbody>
+          <tbody id="tx-tbody">${txRows()}</tbody>
         </table>
       </div>
     </div>`;
@@ -1219,6 +1285,12 @@ function setupTransactionEvents() {
     navigate('transactions');
   });
 }
+
+window.onTxSearch = function(q) {
+  state.txSearch = q;
+  const el = document.getElementById('tx-tbody');
+  if (el) el.innerHTML = txRows();
+};
 
 window.openTransactionAdd = function () {
   openModal('Record Inventory Movement', transactionForm(), saveTransaction);
