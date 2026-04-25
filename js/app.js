@@ -4,7 +4,8 @@
 
 'use strict';
 
-const PRODUCT_CATEGORIES = ['Bar Soap','Bath Salts','Deodorant','Lip Balm','Pet Soap','Shampoo Bar','Sugar Scrub'];
+const PRODUCT_CATEGORIES     = ['Bar Soap','Bath Salts','Deodorant','Lip Balm','Pet Soap','Shampoo Bar','Sugar Scrub'];
+const RAW_MATERIAL_CATEGORIES = ['Additives','Chemicals','Colorant','Flavoring','Fragrance','Hard oils','Liquids','Liquid oils','Packaging','Preservative','Salt'];
 
 // ─── STATE ──────────────────────────────────────────────────
 const state = {
@@ -519,6 +520,14 @@ function setupInventoryEvents() {
   });
 }
 
+window.onInvTypeChange = function(type) {
+  const sel = document.getElementById('f-category');
+  if (!sel) return;
+  const cats = type === 'raw_material' ? RAW_MATERIAL_CATEGORIES : PRODUCT_CATEGORIES;
+  sel.innerHTML = `<option value="">— Select category —</option>` +
+    cats.map(c => `<option value="${c}">${c}</option>`).join('');
+};
+
 window.onInvSearch = function(q) {
   state.invSearch = q;
   const el = document.getElementById('inv-tbody');
@@ -555,7 +564,7 @@ function inventoryForm(item) {
       </div>
       <div class="form-group">
         <label>Type</label>
-        <select id="f-type">
+        <select id="f-type" onchange="onInvTypeChange(this.value)">
           <option value="raw_material"    ${d.type==='raw_material'?'selected':''}>Raw Material</option>
           <option value="wip"             ${d.type==='wip'?'selected':''}>WIP</option>
           <option value="finished_product"${d.type==='finished_product'?'selected':''}>Finished Product</option>
@@ -567,7 +576,7 @@ function inventoryForm(item) {
         <label>Category</label>
         <select id="f-category">
           <option value="">— Select category —</option>
-          ${PRODUCT_CATEGORIES.map(c =>
+          ${(d.type === 'raw_material' ? RAW_MATERIAL_CATEGORIES : PRODUCT_CATEGORIES).map(c =>
             `<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`
           ).join('')}
         </select>
