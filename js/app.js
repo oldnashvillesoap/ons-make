@@ -6,7 +6,7 @@
 
 const PRODUCT_CATEGORIES      = ['Bar Soap','Bath Salts','Deodorant','Lip Balm','Pet Soap','Shampoo Bar','Sugar Scrub'];
 const RAW_MATERIAL_CATEGORIES = ['Additives','Chemicals','Colorant','Flavoring','Fragrance','Hard oils','Liquids','Liquid oils','Packaging','Preservative','Salt'];
-const UNITS = ['batch','each','gal','fl-oz','oz','lb'];
+const UNITS = ['batch','each','g','gal','fl-oz','oz','lb'];
 
 function unitSelect(id, selected, attrs = '') {
   return `<select id="${id}" ${attrs}>
