@@ -268,6 +268,43 @@ function txTypeBadge(type) {
     : `<span class="badge badge-red">Deduction</span>`;
 }
 
+// ─── SEARCH SELECT ──────────────────────────────────────────
+function buildSearchSelect({ containerId, placeholder, items, selectedId, onSelect }) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const sel = items.find(i => i.id === selectedId);
+  container.innerHTML = `
+    <input type="text" class="ss-input" value="${escHtml(sel ? sel.label : '')}"
+           placeholder="${escHtml(placeholder)}" autocomplete="off">
+    <input type="hidden" class="ss-value" value="${escHtml(selectedId || '')}">
+    <div class="ss-list hidden"></div>`;
+
+  const input  = container.querySelector('.ss-input');
+  const hidden = container.querySelector('.ss-value');
+  const list   = container.querySelector('.ss-list');
+
+  function renderList(q) {
+    const lower    = q.toLowerCase();
+    const filtered = lower ? items.filter(i => i.label.toLowerCase().includes(lower)) : items;
+    list.innerHTML = filtered.length
+      ? filtered.map(i => `<div class="ss-option" data-value="${escHtml(i.id)}">${escHtml(i.label)}</div>`).join('')
+      : `<div class="ss-empty">No results</div>`;
+    list.classList.remove('hidden');
+  }
+
+  input.addEventListener('input', () => renderList(input.value));
+  input.addEventListener('focus', () => renderList(input.value));
+  input.addEventListener('blur',  () => setTimeout(() => list.classList.add('hidden'), 200));
+  list.addEventListener('mousedown', e => {
+    const opt = e.target.closest('.ss-option');
+    if (!opt) return;
+    hidden.value = opt.dataset.value;
+    input.value  = opt.textContent;
+    list.classList.add('hidden');
+    onSelect(opt.dataset.value, opt.textContent);
+  });
+}
+
 // ─── DASHBOARD ──────────────────────────────────────────────
 function renderDashboard() {
   const raw      = state.inventory.filter(i => i.type === 'raw_material');
@@ -774,6 +811,7 @@ function setupBatchEvents() {}
 window.openBatchAdd = function () {
   _ingredients = [];
   openModal('New Batch', batchForm(null), saveBatch, true);
+  setupBatchFormSearch(null);
 };
 
 window.openBatchEdit = function (id) {
@@ -781,8 +819,37 @@ window.openBatchEdit = function (id) {
   if (!b) return;
   _ingredients = (b.ingredients || []).map(i => ({ ...i }));
   openModal('Edit Batch', batchForm(b), () => saveBatch(id), true);
+  setupBatchFormSearch(b);
   if (!b.ingredients_locked) refreshIngredientRows('batch');
 };
+
+function setupBatchFormSearch(b) {
+  buildSearchSelect({
+    containerId: 'ss-recipe',
+    placeholder: 'Search recipes…',
+    items: state.recipes.map(r => ({ id: r.id, label: r.name })),
+    selectedId: b?.recipe_id || '',
+    onSelect: id => {
+      const recipe = state.recipes.find(r => r.id === id);
+      if (!recipe) return;
+      _ingredients = (recipe.ingredients || []).map(i => ({ ...i }));
+      const yieldUnit = document.getElementById('f-yield-unit');
+      if (yieldUnit && recipe.yield_unit) yieldUnit.value = recipe.yield_unit;
+      const yieldQty = document.getElementById('f-yield-qty');
+      if (yieldQty && recipe.yield_quantity) yieldQty.value = recipe.yield_quantity;
+      refreshIngredientRows('batch');
+      updateCostSummary('batch');
+    },
+  });
+
+  buildSearchSelect({
+    containerId: 'ss-finished',
+    placeholder: 'Optional — search finished products…',
+    items: state.inventory.filter(i => i.type === 'finished_product').map(i => ({ id: i.id, label: i.name })),
+    selectedId: b?.finished_product_id || '',
+    onSelect: () => {},
+  });
+}
 
 window.deleteBatch = async function (id, name) {
   if (!confirm(`Delete batch "${name}"?`)) return;
@@ -796,18 +863,11 @@ window.deleteBatch = async function (id, name) {
 
 function batchForm(b) {
   const d = b || {};
-  const recipeOptions = state.recipes.map(r =>
-    `<option value="${r.id}" data-name="${escHtml(r.name)}" ${d.recipe_id===r.id?'selected':''}>${escHtml(r.name)}</option>`
-  ).join('');
-
   return `
     <div class="form-row">
       <div class="form-group">
         <label>Recipe</label>
-        <select id="f-recipe" onchange="onRecipeSelect(this)">
-          <option value="">— Select recipe —</option>
-          ${recipeOptions}
-        </select>
+        <div class="search-select" id="ss-recipe"></div>
       </div>
       <div class="form-group">
         <label>Date</label>
@@ -837,12 +897,7 @@ function batchForm(b) {
       </div>
       <div class="form-group">
         <label>Finished Product (Inventory Item)</label>
-        <select id="f-finished">
-          <option value="">— Optional —</option>
-          ${state.inventory.filter(i=>i.type==='finished_product').map(i=>
-            `<option value="${i.id}" ${d.finished_product_id===i.id?'selected':''}>${escHtml(i.name)}</option>`
-          ).join('')}
-        </select>
+        <div class="search-select" id="ss-finished"></div>
       </div>
     </div>
     <div class="form-group">
@@ -893,29 +948,16 @@ function batchForm(b) {
     </div>`}`;
 }
 
-window.onRecipeSelect = function (sel) {
-  const recipeId = sel.value;
-  const recipe = state.recipes.find(r => r.id === recipeId);
-  if (!recipe) return;
-  _ingredients = (recipe.ingredients || []).map(i => ({ ...i }));
-  const yieldUnit = document.getElementById('f-yield-unit');
-  if (yieldUnit && recipe.yield_unit) yieldUnit.value = recipe.yield_unit;
-  const yieldQty = document.getElementById('f-yield-qty');
-  if (yieldQty && recipe.yield_quantity) yieldQty.value = recipe.yield_quantity;
-  refreshIngredientRows('batch');
-  updateCostSummary('batch');
-};
 
 async function saveBatch(id) {
-  const recipeEl    = document.getElementById('f-recipe');
-  const finishedEl  = document.getElementById('f-finished');
+  const recipeId    = document.querySelector('#ss-recipe .ss-value')?.value   || '';
+  const finishedId  = document.querySelector('#ss-finished .ss-value')?.value || '';
   const newStatus   = val('f-status');
   const oldBatch    = id ? state.batches.find(x => x.id === id) : null;
   const wasLocked   = oldBatch?.ingredients_locked || false;
   const lockingNow  = (newStatus === 'curing' || newStatus === 'complete') && !wasLocked;
   const unlockingNow= newStatus === 'in_progress' && wasLocked;
 
-  // When locked, preserve server ingredients; otherwise collect from form
   let ingredients;
   if (wasLocked) {
     ingredients = oldBatch.ingredients || [];
@@ -926,10 +968,11 @@ async function saveBatch(id) {
 
   const yieldQty    = numVal('f-yield-qty');
   const totalCost   = ingredients.reduce((s, i) => s + (i.line_cost || 0), 0);
-  const finishedItem= state.inventory.find(i => i.id === finishedEl?.value);
+  const recipe      = state.recipes.find(r => r.id === recipeId);
+  const finishedItem= state.inventory.find(i => i.id === finishedId);
   const data = {
-    recipe_id:               recipeEl?.value || '',
-    recipe_name:             recipeEl?.options[recipeEl.selectedIndex]?.dataset?.name || recipeEl?.options[recipeEl.selectedIndex]?.text || '',
+    recipe_id:               recipeId,
+    recipe_name:             recipe?.name || document.querySelector('#ss-recipe .ss-input')?.value || '',
     date:                    val('f-date'),
     status:                  newStatus,
     notes:                   val('f-notes').trim(),
@@ -938,7 +981,7 @@ async function saveBatch(id) {
     ingredients,
     total_batch_cost:        +totalCost.toFixed(4),
     cost_per_unit:           yieldQty > 0 ? +(totalCost / yieldQty).toFixed(4) : 0,
-    finished_product_id:     finishedEl?.value || '',
+    finished_product_id:     finishedId,
     finished_product_name:   finishedItem?.name || '',
     finished_product_quantity: yieldQty,
     finished_product_unit:   val('f-yield-unit').trim(),
@@ -1133,19 +1176,7 @@ function refreshIngredientRows(context) {
 
   container.innerHTML = _ingredients.map((ing, idx) => `
     <div class="ingredient-row">
-      <select onchange="onIngredientItemSelect(${idx}, this)">
-        <option value="">— Select item —</option>
-        ${rawMats.map(i => {
-          const prodUnit = i.production_unit || i.unit || '';
-          const conv     = i.conversion_factor || 1;
-          return `<option value="${i.id}"
-            data-unit="${escHtml(i.unit||'')}"
-            data-production-unit="${escHtml(prodUnit)}"
-            data-cost="${i.cost_per_unit||0}"
-            data-conversion="${conv}"
-            ${ing.item_id===i.id?'selected':''}>${escHtml(i.name)}</option>`;
-        }).join('')}
-      </select>
+      <div class="search-select" id="ss-ing-${idx}"></div>
       <input type="number" min="0" step="any" value="${ing.quantity||''}" placeholder="Qty"
              oninput="_ingredients[${idx}].quantity=parseFloat(this.value)||0;updateIngredientCost(${idx},'${context}')">
       <input type="text" value="${escHtml(ing.production_unit||ing.unit||'')}" readonly placeholder="unit">
@@ -1154,6 +1185,31 @@ function refreshIngredientRows(context) {
         <span class="material-icons">close</span>
       </button>
     </div>`).join('');
+
+  _ingredients.forEach((ing, idx) => {
+    buildSearchSelect({
+      containerId: `ss-ing-${idx}`,
+      placeholder: 'Search items…',
+      items: rawMats.map(i => ({ id: i.id, label: i.name })),
+      selectedId: ing.item_id || '',
+      onSelect: id => {
+        const item = rawMats.find(i => i.id === id);
+        if (!item) return;
+        const prodUnit = item.production_unit || item.unit || '';
+        _ingredients[idx].item_id         = id;
+        _ingredients[idx].name            = item.name;
+        _ingredients[idx].unit            = prodUnit;
+        _ingredients[idx].production_unit = prodUnit;
+        _ingredients[idx].cost_per_unit   = item.cost_per_unit / (item.conversion_factor || 1);
+        const row = document.getElementById(`ss-ing-${idx}`)?.closest('.ingredient-row');
+        if (row) {
+          const unitInput = row.querySelector('input[readonly]');
+          if (unitInput) unitInput.value = prodUnit;
+        }
+        updateIngredientCost(idx, context);
+      },
+    });
+  });
 
   updateCostSummary(context);
 }
@@ -1168,19 +1224,6 @@ window.removeIngredientRow = function (idx, context) {
   refreshIngredientRows(context);
 };
 
-window.onIngredientItemSelect = function (idx, sel) {
-  const opt          = sel.options[sel.selectedIndex];
-  const purchaseCost = parseFloat(opt.dataset.cost)       || 0;
-  const conversion   = parseFloat(opt.dataset.conversion) || 1;
-  const prodUnit     = opt.dataset.productionUnit || opt.dataset.unit || '';
-  _ingredients[idx].item_id         = sel.value;
-  _ingredients[idx].name            = opt.text;
-  _ingredients[idx].unit            = prodUnit;
-  _ingredients[idx].production_unit = prodUnit;
-  _ingredients[idx].cost_per_unit   = purchaseCost / conversion;
-  updateIngredientCost(idx, null);
-  refreshIngredientRows(document.getElementById('f-yield-qty') ? 'recipe' : 'batch');
-};
 
 function updateIngredientCost(idx, context) {
   const ing = _ingredients[idx];
