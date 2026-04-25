@@ -806,6 +806,24 @@ window.onCopyFromRecipe = function(recipeId) {
   });
 };
 
+window.onAutoCreateToggle = function(which, checked) {
+  const ssId = which === 'wip' ? 'ss-recipe-wip' : 'ss-recipe-finished';
+  const input  = document.querySelector(`#${ssId} .ss-input`);
+  const hidden = document.querySelector(`#${ssId} .ss-value`);
+  const list   = document.querySelector(`#${ssId} .ss-list`);
+  if (!input) return;
+  if (checked) {
+    input.value  = '';
+    if (hidden) hidden.value = '';
+    if (list)   list.classList.add('hidden');
+    input.disabled = true;
+    input.placeholder = '(will be created on save)';
+  } else {
+    input.disabled    = false;
+    input.placeholder = which === 'wip' ? 'Search WIP products…' : 'Search finished products…';
+  }
+};
+
 window.deleteRecipe = async function (id, name) {
   if (!confirm(`Delete recipe "${name}"?`)) return;
   try {
@@ -843,11 +861,17 @@ function recipeForm(r) {
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label>WIP Product</label>
+        <label class="label-with-action">
+          WIP Product
+          ${!r ? `<label class="checkbox-label"><input type="checkbox" id="chk-create-wip" onchange="onAutoCreateToggle('wip',this.checked)"> Auto-create</label>` : ''}
+        </label>
         <div class="search-select" id="ss-recipe-wip"></div>
       </div>
       <div class="form-group">
-        <label>Finished Product</label>
+        <label class="label-with-action">
+          Finished Product
+          ${!r ? `<label class="checkbox-label"><input type="checkbox" id="chk-create-finished" onchange="onAutoCreateToggle('finished',this.checked)"> Auto-create</label>` : ''}
+        </label>
         <div class="search-select" id="ss-recipe-finished"></div>
       </div>
     </div>
@@ -880,26 +904,12 @@ function recipeForm(r) {
       <div class="cost-row"><span>Estimated Batch Cost</span><span id="cs-batch">$0.00</span></div>
       <div class="cost-row total"><span>Cost per Unit</span><span id="cs-unit">$0.00</span></div>
     </div>
-    ${!r ? `
-    <div class="divider"></div>
-    <div class="form-group">
-      <label>Auto-create materials</label>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
-        <label class="checkbox-label">
-          <input type="checkbox" id="chk-create-wip">
-          <span>Create WIP material <span class="text-muted">(type: WIP, unit: batch)</span></span>
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" id="chk-create-finished">
-          <span>Create Finished Goods material <span class="text-muted">(type: Finished, unit: from yield)</span></span>
-        </label>
-      </div>
-    </div>` : `
+    ${r ? `
     <div style="margin-top:16px;text-align:right">
       <button class="btn btn-danger" onclick="deleteRecipe('${r.id}','${escHtml(r.name)}')">
         <span class="material-icons">delete</span>Delete Recipe
       </button>
-    </div>`}`;
+    </div>` : ''}`;
 }
 
 async function saveRecipe(id) {

@@ -556,6 +556,21 @@ textarea { resize: vertical; min-height: 72px; }
 }
 .toolbar-search input::placeholder { color: var(--text-muted); }
 
+/* ─── LABEL WITH INLINE ACTION ─── */
+.label-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.label-with-action .checkbox-label {
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-muted);
+}
+
 /* ─── CHECKBOX LABEL ─── */
 .checkbox-label {
   display: flex;
