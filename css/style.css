@@ -363,6 +363,11 @@ tbody td {
 .btn-ghost { background: transparent; color: var(--text-muted); border-color: var(--border); }
 .btn-ghost:hover { background: var(--bg); color: var(--text); }
 
+.btn-warning { background: var(--amber, #f59e0b); color: white; border-color: transparent; }
+.btn-warning:hover { background: #d97706; }
+
+.btn-sm { padding: 4px 10px; font-size: 12px; gap: 4px; }
+
 .btn-danger { background: var(--danger); color: white; }
 .btn-danger:hover { background: #dc2626; }
 
@@ -381,9 +386,15 @@ tbody td {
 
 .btn-icon:hover { background: var(--bg); color: var(--text); }
 .btn-icon.danger:hover { background: var(--danger-light); color: var(--danger); }
+.btn-icon.warning { color: var(--amber, #f59e0b); }
+.btn-icon.warning:hover { background: #fef3c7; color: #d97706; }
+.btn-icon.success { color: var(--success, #059669); }
+.btn-icon.success:hover { background: #d1fae5; color: #047857; }
 .btn-icon .material-icons { font-size: 16px; }
 
 .actions { display: flex; gap: 4px; align-items: center; }
+
+.row-inactive td { opacity: 0.5; }
 
 /* ─── TABS ─── */
 .tabs {

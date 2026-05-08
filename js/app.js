@@ -17,19 +17,20 @@ function unitSelect(id, selected, attrs = '') {
 
 // ─── STATE ──────────────────────────────────────────────────
 const state = {
-  inventory:    [],
-  recipes:      [],
-  batches:      [],
-  transactions: [],
+  inventory:       [],
+  recipes:         [],
+  batches:         [],
+  transactions:    [],
   view: 'dashboard',
-  invFilter:    'all',
-  invSearch:    '',
-  recipeSearch: '',
-  recipeFilter: '',
-  batchSearch:  '',
-  batchFilter:  '',
-  txFilter:     'all',
-  txSearch:     '',
+  invFilter:       'all',
+  invSearch:       '',
+  invShowInactive: false,
+  recipeSearch:    '',
+  recipeFilter:    '',
+  batchSearch:     '',
+  batchFilter:     '',
+  txFilter:        'all',
+  txSearch:        '',
 };
 
 let db;
@@ -359,14 +360,14 @@ function buildSearchSelect({ containerId, placeholder, items, selectedId, onSele
 // ─── DASHBOARD ──────────────────────────────────────────────
 function invValue(type) {
   return state.inventory
-    .filter(i => i.type === type)
+    .filter(i => i.type === type && i.active !== false)
     .reduce((s, i) => s + (i.stock_on_hand ?? 0) * (i.cost_per_unit ?? 0), 0);
 }
 
 function renderDashboard() {
   const lowStockSort = (a, b) => (a.stock_on_hand ?? 0) - (b.stock_on_hand ?? 0) || (a.name || '').localeCompare(b.name || '');
-  const lowStockRaw  = state.inventory.filter(i => i.type === 'raw_material' && (i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0)).sort(lowStockSort);
-  const lowStockFin  = state.inventory.filter(i => i.type === 'finished_product' && (i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0)).sort(lowStockSort);
+  const lowStockRaw  = state.inventory.filter(i => i.active !== false && i.type === 'raw_material' && (i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0)).sort(lowStockSort);
+  const lowStockFin  = state.inventory.filter(i => i.active !== false && i.type === 'finished_product' && (i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0)).sort(lowStockSort);
   const lowStock     = [...lowStockRaw, ...lowStockFin];
   const active   = state.batches.filter(b => b.status === 'in_progress' || b.status === 'curing');
   const recent   = [...state.batches].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5);
@@ -486,13 +487,15 @@ function renderDashboard() {
 function invRows() {
   const f = state.invFilter;
   const q = state.invSearch.toLowerCase();
+  const showInactive = state.invShowInactive;
   const items = state.inventory
+    .filter(i => showInactive ? i.active === false : i.active !== false)
     .filter(i => f === 'all' || i.type === f)
     .filter(i => !q || (i.name||'').toLowerCase().includes(q) || (i.category||'').toLowerCase().includes(q) || (i.supplier||'').toLowerCase().includes(q))
     .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  if (!items.length) return `<tr><td colspan="8"><div class="empty-state"><span class="material-icons">inventory_2</span><h3>No items found</h3><p>Add your first inventory item to get started.</p></div></td></tr>`;
+  if (!items.length) return `<tr><td colspan="8"><div class="empty-state"><span class="material-icons">inventory_2</span><h3>${showInactive ? 'No inactive items' : 'No items found'}</h3><p>${showInactive ? 'No deactivated materials.' : 'Add your first inventory item to get started.'}</p></div></td></tr>`;
   return items.map(i => `
-    <tr class="clickable" ondblclick="openInventoryEdit('${i.id}')">
+    <tr class="clickable${i.active === false ? ' row-inactive' : ''}" ondblclick="${i.active === false ? '' : `openInventoryEdit('${i.id}')`}">
       <td class="font-medium">${escHtml(i.name)}</td>
       <td>${typeBadge(i.type)}</td>
       <td>${escHtml(i.category || '—')}</td>
@@ -504,7 +507,10 @@ function invRows() {
       <td>${escHtml(i.supplier || '—')}</td>
       <td>
         <div class="actions">
-          <button class="btn-icon" onclick="openInventoryEdit('${i.id}')" title="Edit"><span class="material-icons">edit</span></button>
+          ${i.active !== false ? `<button class="btn-icon" onclick="openInventoryEdit('${i.id}')" title="Edit"><span class="material-icons">edit</span></button>` : ''}
+          <button class="btn-icon${i.active === false ? ' success' : ' warning'}" onclick="toggleInventoryActive('${i.id}',${i.active === false})" title="${i.active === false ? 'Reactivate' : 'Deactivate'}">
+            <span class="material-icons">${i.active === false ? 'toggle_on' : 'toggle_off'}</span>
+          </button>
           <button class="btn-icon danger" onclick="deleteInventoryItem('${i.id}','${escHtml(i.name)}')" title="Delete"><span class="material-icons">delete</span></button>
         </div>
       </td>
@@ -513,6 +519,9 @@ function invRows() {
 
 function renderInventory() {
   const f = state.invFilter;
+  const showInactive = state.invShowInactive;
+  const activeInv = state.inventory.filter(i => i.active !== false);
+  const inactiveCount = state.inventory.filter(i => i.active === false).length;
   return `
     <div class="page-header">
       <div>
@@ -524,14 +533,19 @@ function renderInventory() {
       </button>
     </div>
     <div class="tabs" id="inv-tabs">
-      <button class="tab ${f==='all'?'active':''}" data-filter="all">All (${state.inventory.length})</button>
+      <button class="tab ${f==='all'?'active':''}" data-filter="all">All (${showInactive ? state.inventory.filter(i=>i.active===false).length : activeInv.length})</button>
       <button class="tab ${f==='raw_material'?'active':''}" data-filter="raw_material">Raw Materials</button>
       <button class="tab ${f==='wip'?'active':''}" data-filter="wip">WIP</button>
       <button class="tab ${f==='finished_product'?'active':''}" data-filter="finished_product">Finished Products</button>
     </div>
     <div class="card">
       <div class="table-toolbar">
-        <div class="toolbar-filters"></div>
+        <div class="toolbar-filters">
+          <button class="btn btn-sm ${showInactive ? 'btn-warning' : 'btn-ghost'}" onclick="onInvToggleInactive()" title="${showInactive ? 'Showing inactive — click to show active' : 'Show inactive materials'}">
+            <span class="material-icons" style="font-size:16px">${showInactive ? 'toggle_on' : 'toggle_off'}</span>
+            ${showInactive ? `Inactive (${inactiveCount})` : `Show Inactive${inactiveCount ? ` (${inactiveCount})` : ''}`}
+          </button>
+        </div>
         <div class="toolbar-search">
           <span class="material-icons">search</span>
           <input type="text" placeholder="Search name, category, supplier…" value="${escHtml(state.invSearch)}" oninput="onInvSearch(this.value)">
@@ -570,6 +584,20 @@ window.onInvSearch = function(q) {
   state.invSearch = q;
   const el = document.getElementById('inv-tbody');
   if (el) el.innerHTML = invRows();
+};
+
+window.onInvToggleInactive = function() {
+  state.invShowInactive = !state.invShowInactive;
+  navigate('inventory');
+};
+
+window.toggleInventoryActive = async function(id, makeActive) {
+  try {
+    await updateDoc('inventory_items', id, { active: makeActive });
+    await reload('inventory_items');
+    toast(makeActive ? 'Item reactivated' : 'Item deactivated');
+    navigate('inventory');
+  } catch (e) { toast('Update failed', 'error'); }
 };
 
 window.openInventoryAdd = function () {
@@ -666,6 +694,7 @@ async function saveInventoryItem(id) {
   const purchaseUnit    = val('f-unit').trim();
   const productionUnit  = val('f-production-unit').trim();
   const conversionFactor = numVal('f-conversion') || 1;
+  const existingItem = id ? state.inventory.find(i => i.id === id) : null;
   const data = {
     name,
     type:              val('f-type'),
@@ -679,6 +708,7 @@ async function saveInventoryItem(id) {
     currency:          'USD',
     supplier:          val('f-supplier').trim(),
     notes:             val('f-notes').trim(),
+    active:            existingItem ? (existingItem.active !== false) : true,
   };
   try {
     if (id) {
@@ -809,7 +839,7 @@ function setupRecipeFormSearch(r) {
   buildSearchSelect({
     containerId: 'ss-recipe-wip',
     placeholder: 'Search WIP products…',
-    items: state.inventory.filter(i => i.type === 'wip').map(i => ({ id: i.id, label: i.name })),
+    items: state.inventory.filter(i => i.type === 'wip' && i.active !== false).map(i => ({ id: i.id, label: i.name })),
     selectedId: r?.wip_product_id || '',
     onSelect: () => {},
   });
@@ -817,7 +847,7 @@ function setupRecipeFormSearch(r) {
   buildSearchSelect({
     containerId: 'ss-recipe-finished',
     placeholder: 'Search finished products…',
-    items: state.inventory.filter(i => i.type === 'finished_product').map(i => ({ id: i.id, label: i.name })),
+    items: state.inventory.filter(i => i.type === 'finished_product' && i.active !== false).map(i => ({ id: i.id, label: i.name })),
     selectedId: r?.finished_product_id || '',
     onSelect: id => {
       const item = state.inventory.find(i => i.id === id);
@@ -1134,7 +1164,7 @@ function setupBatchFormSearch(b) {
   buildSearchSelect({
     containerId: 'ss-finished',
     placeholder: 'Optional — search finished products…',
-    items: state.inventory.filter(i => i.type === 'finished_product').map(i => ({ id: i.id, label: i.name })),
+    items: state.inventory.filter(i => i.type === 'finished_product' && i.active !== false).map(i => ({ id: i.id, label: i.name })),
     selectedId: b?.finished_product_id || '',
     onSelect: () => {},
   });
@@ -1576,7 +1606,7 @@ function refreshIngredientRows(context) {
   const container = document.getElementById('ingredient-rows');
   if (!container) return;
 
-  const rawMats = state.inventory.filter(i => i.type === 'raw_material');
+  const rawMats = state.inventory.filter(i => i.type === 'raw_material' && i.active !== false);
 
   const isBatch = context === 'batch';
   container.innerHTML = _ingredients.map((ing, idx) => `
