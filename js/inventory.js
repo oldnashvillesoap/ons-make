@@ -174,11 +174,7 @@ function inventoryForm(item) {
       <label>Notes</label>
       <textarea id="f-notes" placeholder="Optional notes…">${escHtml(d.notes||'')}</textarea>
     </div>
-    <div class="form-group form-group-inline">
-      <input type="checkbox" id="f-active" ${!isInactive ? 'checked' : ''}>
-      <label for="f-active" style="margin:0;font-weight:500">Active</label>
-      <span class="text-muted" style="font-size:12px">— uncheck to hide from dashboard and search</span>
-    </div>`;
+    `;
 }
 
 // ─── SAVE ────────────────────────────────────────────────────
@@ -201,7 +197,7 @@ async function saveInventoryItem(id) {
     currency:          'USD',
     supplier:          document.getElementById('f-supplier')?.value.trim(),
     notes:             document.getElementById('f-notes')?.value.trim(),
-    active:            document.getElementById('f-active')?.checked ?? true,
+    active:            id ? (state.inventory.find(i => i.id === id)?.active ?? true) : true,
   };
   try {
     if (id) {

@@ -542,6 +542,13 @@ tr.ingredient-done td:not(:first-child) { opacity: 0.4; text-decoration: line-th
 .ingredient-row.ingredient-done input[type="checkbox"],
 tr.ingredient-done td:first-child { opacity: 1; text-decoration: none; }
 
+.ingredient-row.ingredient-inactive { border-left: 3px solid var(--warning); background: var(--warning-light); border-radius: 4px; padding-left: 5px; margin-left: -8px; }
+tr.ingredient-inactive td { background: var(--warning-light); }
+.ing-inactive-icon { font-size: 14px !important; color: var(--warning); vertical-align: middle; margin-left: 4px; }
+
+.ss-option.ss-option-inactive { color: var(--text-muted); }
+.ss-inactive-tag { display: inline-block; font-size: 10px; padding: 1px 5px; background: var(--warning-light); color: var(--warning); border-radius: 4px; margin-left: 6px; font-weight: 600; vertical-align: middle; }
+
 /* ─── TABLE TOOLBAR ─── */
 .table-toolbar {
   display: flex;

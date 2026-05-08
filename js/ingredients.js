@@ -4,6 +4,22 @@ import { escHtml } from './helpers.js';
 
 let _ingredients = [];
 
+const CATEGORY_ORDER = [
+  'hard oils', 'liquid oils', 'liquids', 'chemicals',
+  'additives', 'colorant', 'fragrance', 'packaging',
+];
+
+function categoryRank(ing) {
+  const item = state.inventory.find(i => i.id === ing.item_id);
+  const cat = (item?.category || '').toLowerCase();
+  const rank = CATEGORY_ORDER.indexOf(cat);
+  return rank === -1 ? CATEGORY_ORDER.length : rank;
+}
+
+export function sortIngredientsByCategory(ings) {
+  return [...ings].sort((a, b) => categoryRank(a) - categoryRank(b));
+}
+
 export function getIngredients()    { return _ingredients; }
 export function setIngredients(arr) { _ingredients = arr; }
 export function clearIngredients()  { _ingredients = []; }
@@ -12,11 +28,15 @@ export function refreshIngredientRows(context) {
   const container = document.getElementById('ingredient-rows');
   if (!container) return;
 
-  const rawMats = state.inventory.filter(i => i.type === 'raw_material' && i.active !== false);
+  const rawMats = state.inventory.filter(i => i.type === 'raw_material');
   const isBatch = context === 'batch';
 
-  container.innerHTML = _ingredients.map((ing, idx) => `
-    <div class="ingredient-row" id="ing-row-${idx}">
+  _ingredients.sort((a, b) => categoryRank(a) - categoryRank(b));
+
+  container.innerHTML = _ingredients.map((ing, idx) => {
+    const isInactive = ing.item_id && state.inventory.find(i => i.id === ing.item_id)?.active === false;
+    return `
+    <div class="ingredient-row${isInactive ? ' ingredient-inactive' : ''}" id="ing-row-${idx}">
       ${isBatch ? `<input type="checkbox" onchange="document.getElementById('ing-row-${idx}').classList.toggle('ingredient-done',this.checked)">` : '<span></span>'}
       <div class="search-select" id="ss-ing-${idx}"></div>
       <input type="number" min="0" step="any" value="${ing.quantity||''}" placeholder="Qty"
@@ -26,13 +46,14 @@ export function refreshIngredientRows(context) {
       <button type="button" class="btn-icon danger" onclick="removeIngredientRow(${idx},'${context}')">
         <span class="material-icons">close</span>
       </button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 
   _ingredients.forEach((ing, idx) => {
     buildSearchSelect({
       containerId: `ss-ing-${idx}`,
       placeholder: 'Search items…',
-      items: rawMats.map(i => ({ id: i.id, label: i.name })),
+      items: rawMats.map(i => ({ id: i.id, label: i.name, inactive: i.active === false })),
       selectedId: ing.item_id || '',
       onSelect: id => {
         const item = rawMats.find(i => i.id === id);
@@ -47,6 +68,7 @@ export function refreshIngredientRows(context) {
         if (row) {
           const unitInput = row.querySelector('input[readonly]');
           if (unitInput) unitInput.value = prodUnit;
+          row.classList.toggle('ingredient-inactive', item.active === false);
         }
         updateIngredientCost(idx, context);
       },

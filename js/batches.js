@@ -3,7 +3,7 @@ import { escHtml, fmtCur, batchStatusBadge, batchAge, unitSelect } from './helpe
 import { addDoc, updateDoc, deleteDoc, reload, deductBatchIngredients, reverseBatchIngredients, recordItemTransaction } from './db.js';
 import { openModal, closeModal, toast, buildSearchSelect } from './ui.js';
 import { navigate } from './nav.js';
-import { getIngredients, setIngredients, refreshIngredientRows, updateCostSummary, collectIngredientInputs } from './ingredients.js';
+import { getIngredients, setIngredients, refreshIngredientRows, updateCostSummary, collectIngredientInputs, sortIngredientsByCategory } from './ingredients.js';
 
 function batchRows() {
   const q  = state.batchSearch.toLowerCase();
@@ -169,14 +169,17 @@ function batchForm(b) {
       <table>
         <thead><tr><th style="width:32px"></th><th>Item</th><th>Qty</th><th>Unit</th><th style="text-align:right">Line Cost</th></tr></thead>
         <tbody>
-          ${(d.ingredients||[]).map((ing, idx) => `
-            <tr id="locked-ing-${idx}">
+          ${sortIngredientsByCategory(d.ingredients||[]).map((ing, idx) => {
+            const isInactive = ing.item_id && state.inventory.find(i => i.id === ing.item_id)?.active === false;
+            return `
+            <tr id="locked-ing-${idx}"${isInactive ? ' class="ingredient-inactive"' : ''}>
               <td><input type="checkbox" onchange="document.getElementById('locked-ing-${idx}').classList.toggle('ingredient-done',this.checked)"></td>
-              <td>${escHtml(ing.name||'')}</td>
+              <td>${escHtml(ing.name||'')}${isInactive ? '<span class="material-icons ing-inactive-icon" title="Ingredient is inactive">warning</span>' : ''}</td>
               <td class="font-mono">${ing.quantity ?? ''}</td>
               <td>${escHtml(ing.unit||'')}</td>
               <td class="font-mono" style="text-align:right">${fmtCur(ing.line_cost)}</td>
-            </tr>`).join('')}
+            </tr>`;
+          }).join('')}
         </tbody>
       </table>
     </div>

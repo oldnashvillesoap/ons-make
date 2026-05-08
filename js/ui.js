@@ -62,7 +62,7 @@ export function buildSearchSelect({ containerId, placeholder, items, selectedId,
     const lower    = q.toLowerCase();
     const filtered = lower ? items.filter(i => i.label.toLowerCase().includes(lower)) : items;
     list.innerHTML = filtered.length
-      ? filtered.map(i => `<div class="ss-option" data-value="${escHtml(i.id)}">${escHtml(i.label)}</div>`).join('')
+      ? filtered.map(i => `<div class="ss-option${i.inactive ? ' ss-option-inactive' : ''}" data-value="${escHtml(i.id)}" data-label="${escHtml(i.label)}">${escHtml(i.label)}${i.inactive ? '<span class="ss-inactive-tag">inactive</span>' : ''}</div>`).join('')
       : `<div class="ss-empty">No results</div>`;
     list.classList.remove('hidden');
   }
@@ -74,7 +74,7 @@ export function buildSearchSelect({ containerId, placeholder, items, selectedId,
     const opt = e.target.closest('.ss-option');
     if (!opt) return;
     hidden.value = opt.dataset.value;
-    input.value  = opt.textContent;
+    input.value  = opt.dataset.label || opt.textContent;
     list.classList.add('hidden');
     onSelect(opt.dataset.value, opt.textContent);
   });
