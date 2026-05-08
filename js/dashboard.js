@@ -89,7 +89,7 @@ export function renderDashboard() {
         <span class="section-title">⚠ Low Stock Alerts</span>
         <span class="badge badge-${lowStock.length ? 'red' : 'green'}">${lowStock.length} item${lowStock.length !== 1 ? 's' : ''}</span>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="low-stock-grid">
         <div>
           <div class="section-title" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px">Raw Materials</div>
           <div class="table-wrap">

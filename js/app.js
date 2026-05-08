@@ -45,7 +45,7 @@ function renderSidebarUser(user) {
       <span class="sidebar-user-name">${escHtml(user.displayName || user.email || 'User')}</span>
     </div>
     <button class="btn-signout" onclick="signOut()">
-      <span class="material-icons" style="font-size:16px">logout</span>Sign out
+      <span class="material-icons" style="font-size:16px">logout</span><span class="nav-label">Sign out</span>
     </button>`;
 }
 
