@@ -659,7 +659,9 @@ window.deleteInventoryItem = async function (id, name) {
 
 function inventoryForm(item) {
   const d = item || {};
+  const isInactive = d.active === false;
   return `
+    ${isInactive ? `<div class="form-notice form-notice-warning"><span class="material-icons">block</span>This item is inactive and hidden from search and the dashboard.</div>` : ''}
     <div class="form-row">
       <div class="form-group">
         <label>Name</label>
@@ -722,6 +724,11 @@ function inventoryForm(item) {
     <div class="form-group">
       <label>Notes</label>
       <textarea id="f-notes" placeholder="Optional notes…">${escHtml(d.notes||'')}</textarea>
+    </div>
+    <div class="form-group form-group-inline">
+      <input type="checkbox" id="f-active" ${!isInactive ? 'checked' : ''}>
+      <label for="f-active" style="margin:0;font-weight:500">Active</label>
+      <span class="text-muted" style="font-size:12px">— uncheck to hide from dashboard and search</span>
     </div>`;
 }
 
@@ -745,7 +752,7 @@ async function saveInventoryItem(id) {
     currency:          'USD',
     supplier:          val('f-supplier').trim(),
     notes:             val('f-notes').trim(),
-    active:            existingItem ? (existingItem.active !== false) : true,
+    active:            document.getElementById('f-active')?.checked ?? true,
   };
   try {
     if (id) {
