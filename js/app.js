@@ -642,7 +642,7 @@ function inventoryForm(item) {
         <label>Category</label>
         <select id="f-category">
           <option value="">— Select category —</option>
-          ${(d.type === 'raw_material' ? RAW_MATERIAL_CATEGORIES : PRODUCT_CATEGORIES).map(c =>
+          ${((d.type === 'wip' || d.type === 'finished_product') ? PRODUCT_CATEGORIES : RAW_MATERIAL_CATEGORIES).map(c =>
             `<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`
           ).join('')}
         </select>
