@@ -578,6 +578,43 @@ window.onInvTypeChange = function(type) {
   const cats = type === 'raw_material' ? RAW_MATERIAL_CATEGORIES : PRODUCT_CATEGORIES;
   sel.innerHTML = `<option value="">— Select category —</option>` +
     cats.map(c => `<option value="${c}">${c}</option>`).join('');
+  onConversionUnitsChange();
+};
+
+function conversionHintText(prodUnit, purchUnit) {
+  if (prodUnit && purchUnit && prodUnit !== purchUnit) return `(${prodUnit} per ${purchUnit})`;
+  return '(production ÷ purchase)';
+}
+
+const VOLUME_CONVERSIONS = {
+  'fl-oz': { Liquids: 29.57, 'Liquid oils': 27.21 },
+  gal:     { Liquids: 3785.41, 'Liquid oils': 3482.58 },
+};
+const MASS_CONVERSIONS = { oz: 28.35, lb: 453.59 };
+
+window.onConversionUnitsChange = function() {
+  const purchUnit = document.getElementById('f-unit')?.value;
+  const prodUnit  = document.getElementById('f-production-unit')?.value;
+  const category  = document.getElementById('f-category')?.value;
+
+  const hint = document.getElementById('conversion-hint');
+  if (hint) hint.textContent = conversionHintText(prodUnit, purchUnit);
+
+  if (!purchUnit || !prodUnit || prodUnit === purchUnit) return;
+
+  const convInput = document.getElementById('f-conversion');
+  if (!convInput) return;
+
+  const key = `${prodUnit}/${purchUnit}`;
+  let known;
+  if (key === 'g/oz') known = MASS_CONVERSIONS.oz;
+  else if (key === 'g/lb') known = MASS_CONVERSIONS.lb;
+  else if (prodUnit === 'g' && VOLUME_CONVERSIONS[purchUnit]) {
+    const table = VOLUME_CONVERSIONS[purchUnit];
+    known = table[category] ?? table.Liquids;
+  }
+
+  if (known !== undefined) convInput.value = known;
 };
 
 window.onInvSearch = function(q) {
@@ -640,7 +677,7 @@ function inventoryForm(item) {
     <div class="form-row">
       <div class="form-group">
         <label>Category</label>
-        <select id="f-category">
+        <select id="f-category" onchange="onConversionUnitsChange()">
           <option value="">— Select category —</option>
           ${((d.type === 'wip' || d.type === 'finished_product') ? PRODUCT_CATEGORIES : RAW_MATERIAL_CATEGORIES).map(c =>
             `<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`
@@ -649,16 +686,16 @@ function inventoryForm(item) {
       </div>
       <div class="form-group">
         <label>Purchase Unit</label>
-        ${unitSelect('f-unit', d.unit||'')}
+        ${unitSelect('f-unit', d.unit||'', 'onchange="onConversionUnitsChange()"')}
       </div>
     </div>
     <div class="form-row">
       <div class="form-group">
         <label>Production Unit <span class="text-muted" style="font-weight:400">(used in recipes — leave blank if same as purchase)</span></label>
-        ${unitSelect('f-production-unit', d.production_unit||'')}
+        ${unitSelect('f-production-unit', d.production_unit||'', 'onchange="onConversionUnitsChange()"')}
       </div>
       <div class="form-group">
-        <label>Conversion <span class="text-muted" style="font-weight:400">(production ÷ purchase)</span></label>
+        <label>Conversion <span id="conversion-hint" class="text-muted" style="font-weight:400">${conversionHintText(d.production_unit, d.unit)}</span></label>
         <input id="f-conversion" type="number" min="0" step="any" value="${d.conversion_factor||''}" placeholder="e.g. 3785 for gal→g">
       </div>
     </div>
