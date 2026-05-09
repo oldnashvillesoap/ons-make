@@ -84,29 +84,29 @@ export function renderDashboard() {
       </div>
     </div>
 
-    <div class="section card" style="margin-bottom:20px">
-      <div class="section-header">
-        <span class="section-title">⚠ Low Stock Alerts</span>
-        <span class="badge badge-${lowStock.length ? 'red' : 'green'}">${lowStock.length} item${lowStock.length !== 1 ? 's' : ''}</span>
-      </div>
-      <div class="low-stock-grid">
-        <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text);padding:0 0 6px 16px;margin-bottom:2px">Raw Materials</div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Item</th><th>On Hand</th><th>Reorder At</th></tr></thead>
-              <tbody>${lowStockTableRows(lowStockRaw)}</tbody>
-            </table>
-          </div>
+    <div class="low-stock-grid" style="margin-bottom:20px">
+      <div class="section card">
+        <div class="section-header">
+          <span class="section-title">⚠ Raw Materials</span>
+          <span class="badge badge-${lowStockRaw.length ? 'red' : 'green'}">${lowStockRaw.length} item${lowStockRaw.length !== 1 ? 's' : ''}</span>
         </div>
-        <div>
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text);padding:0 0 6px 16px;margin-bottom:2px">Finished Products</div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Item</th><th>On Hand</th><th>Reorder At</th></tr></thead>
-              <tbody>${lowStockTableRows(lowStockFin)}</tbody>
-            </table>
-          </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Item</th><th>On Hand</th><th>Reorder At</th></tr></thead>
+            <tbody>${lowStockTableRows(lowStockRaw)}</tbody>
+          </table>
+        </div>
+      </div>
+      <div class="section card">
+        <div class="section-header">
+          <span class="section-title">⚠ Finished Products</span>
+          <span class="badge badge-${lowStockFin.length ? 'red' : 'green'}">${lowStockFin.length} item${lowStockFin.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Item</th><th>On Hand</th><th>Reorder At</th></tr></thead>
+            <tbody>${lowStockTableRows(lowStockFin)}</tbody>
+          </table>
         </div>
       </div>
     </div>
