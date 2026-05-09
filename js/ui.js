@@ -19,6 +19,7 @@ export function openModal(title, bodyHTML, onSave, large = false) {
   document.getElementById('modal').className = large ? 'modal lg' : 'modal';
   document.getElementById('modal-overlay').classList.remove('hidden');
   document.getElementById('modal-footer').style.display = '';
+  document.getElementById('modal-body').scrollTop = 0;
   window._onSave = onSave;
 }
 
