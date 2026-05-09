@@ -844,7 +844,8 @@ tr.ingredient-inactive td { background: var(--warning-light); }
 /* ─── UTILS ─── */
 .gap-8 { gap: 8px; }
 .mb-0  { margin-bottom: 0; }
-.low-stock { color: var(--danger); font-weight: 600; }
+.low-stock      { color: var(--danger);  font-weight: 600; }
+.low-stock-warn { color: var(--warning); font-weight: 600; }
 
 /* ─── HELP ─── */
 .help-layout {

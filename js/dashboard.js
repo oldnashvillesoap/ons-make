@@ -40,7 +40,7 @@ export function renderDashboard() {
           <td class="font-medium card-title">${escHtml(i.name)}</td>
           <td data-label="On Hand" class="font-mono">${i.stock_on_hand ?? 0} ${unit}</td>
           <td data-label="Committed" class="font-mono text-muted">${committed > 0 ? +committed.toFixed(2) + ' ' + unit : '—'}</td>
-          <td data-label="Available" class="font-mono ${avail <= (i.reorder_threshold ?? 0) ? 'low-stock' : ''}">${+avail.toFixed(2)} ${unit}</td>
+          <td data-label="Available" class="font-mono ${avail < 0 ? 'low-stock' : 'low-stock-warn'}">${+avail.toFixed(2)} ${unit}</td>
           <td data-label="Reorder At" class="font-mono text-muted">${i.reorder_threshold ?? 0} ${unit}</td>
         </tr>`;
       }).join('')
