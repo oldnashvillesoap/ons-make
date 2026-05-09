@@ -996,8 +996,8 @@ tr.ingredient-inactive td { background: var(--warning-light); }
   /* Low-stock dashboard: stack vertically */
   .low-stock-grid { grid-template-columns: 1fr; }
 
-  /* Tabs: scrollable row */
-  .tabs { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; flex-wrap: nowrap; }
+  /* Tabs: wrap on mobile */
+  .tabs { width: 100%; flex-wrap: wrap; }
 
   /* Forms: single column */
   .form-row,
