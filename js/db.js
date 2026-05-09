@@ -65,25 +65,29 @@ export async function recordItemTransaction(type, itemId, itemName, unit, qty, c
 
 export async function deductBatchIngredients(ingredients, batchId, date) {
   for (const ing of ingredients.filter(i => i.item_id && (i.quantity || 0) > 0)) {
+    const conv        = state.inventory.find(i => i.id === ing.item_id)?.conversion_factor || 1;
+    const purchaseQty = ing.quantity / conv;
     await addDoc('inventory_transactions', {
       type: 'deduction', item_id: ing.item_id, item_name: ing.name,
       quantity: ing.quantity, unit: ing.unit,
       cost_per_unit: ing.cost_per_unit || 0, total_cost: ing.line_cost || 0,
       reason: 'production', batch_id: batchId, date,
     });
-    await adjustStock(ing.item_id, -(ing.quantity));
+    await adjustStock(ing.item_id, -purchaseQty);
   }
 }
 
 export async function reverseBatchIngredients(ingredients, batchId, date) {
   for (const ing of ingredients.filter(i => i.item_id && (i.quantity || 0) > 0)) {
+    const conv        = state.inventory.find(i => i.id === ing.item_id)?.conversion_factor || 1;
+    const purchaseQty = ing.quantity / conv;
     await addDoc('inventory_transactions', {
       type: 'addition', item_id: ing.item_id, item_name: ing.name,
       quantity: ing.quantity, unit: ing.unit,
       cost_per_unit: ing.cost_per_unit || 0, total_cost: ing.line_cost || 0,
       reason: 'production reversal', batch_id: batchId, date,
     });
-    await addStockWeighted(ing.item_id, ing.quantity, ing.cost_per_unit || 0);
+    await addStockWeighted(ing.item_id, purchaseQty, (ing.cost_per_unit || 0) * conv);
   }
 }
 
