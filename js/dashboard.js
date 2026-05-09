@@ -1,5 +1,5 @@
 import { state } from './state.js';
-import { escHtml, fmtCur, batchStatusBadge } from './helpers.js';
+import { escHtml, fmtCur, fmtQty, batchStatusBadge } from './helpers.js';
 
 function invValue(type) {
   return state.inventory
@@ -38,9 +38,9 @@ export function renderDashboard() {
         return `
         <tr>
           <td class="font-medium card-title">${escHtml(i.name)}</td>
-          <td data-label="On Hand" class="font-mono">${i.stock_on_hand ?? 0} ${unit}</td>
-          <td data-label="Committed" class="font-mono text-muted">${committed > 0 ? +committed.toFixed(2) + ' ' + unit : '—'}</td>
-          <td data-label="Available" class="font-mono ${avail < 0 ? 'low-stock' : 'low-stock-warn'}">${+avail.toFixed(2)} ${unit}</td>
+          <td data-label="On Hand" class="font-mono">${fmtQty(i.stock_on_hand)} ${unit}</td>
+          <td data-label="Committed" class="font-mono text-muted">${committed > 0 ? fmtQty(committed) + ' ' + unit : '—'}</td>
+          <td data-label="Available" class="font-mono ${avail < 0 ? 'low-stock' : 'low-stock-warn'}">${fmtQty(avail)} ${unit}</td>
           <td data-label="Reorder At" class="font-mono text-muted">${i.reorder_threshold ?? 0} ${unit}</td>
         </tr>`;
       }).join('')

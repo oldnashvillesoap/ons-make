@@ -1,6 +1,7 @@
 import { UNITS } from './state.js';
 
 export function fmt(n) { return typeof n === 'number' ? n.toFixed(2) : '—'; }
+export function fmtQty(n) { return typeof n === 'number' ? +n.toFixed(3) : (n ?? 0); }
 export function fmtCur(n) { return typeof n === 'number' ? `$${n.toFixed(2)}` : '—'; }
 export function escHtml(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

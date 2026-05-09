@@ -1,5 +1,5 @@
 import { state, PRODUCT_CATEGORIES, RAW_MATERIAL_CATEGORIES } from './state.js';
-import { escHtml, fmtCur, typeBadge, unitSelect } from './helpers.js';
+import { escHtml, fmtCur, fmtQty, typeBadge, unitSelect } from './helpers.js';
 import { addDoc, updateDoc, deleteDoc, reload } from './db.js';
 import { openModal, closeModal, toast } from './ui.js';
 import { navigate } from './nav.js';
@@ -21,7 +21,7 @@ function invRows() {
       <td data-label="Type">${typeBadge(i.type)}</td>
       <td data-label="Category">${escHtml(i.category || '—')}</td>
       <td data-label="On Hand" class="font-mono ${(i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0) ? 'low-stock' : ''}">
-        ${i.stock_on_hand ?? 0} ${escHtml(i.unit || '')}
+        ${fmtQty(i.stock_on_hand)} ${escHtml(i.unit || '')}
       </td>
       <td data-label="Reorder At" class="font-mono text-muted">${i.reorder_threshold ?? 0} ${escHtml(i.unit || '')}</td>
       <td data-label="Cost" class="font-mono">${fmtCur(i.cost_per_unit)}/${escHtml(i.unit||'unit')}${i.production_unit && i.production_unit !== i.unit ? `<br><span class="text-muted" style="font-size:11px">${fmtCur(i.cost_per_unit / (i.conversion_factor||1))}/${escHtml(i.production_unit)}</span>` : ''}</td>
