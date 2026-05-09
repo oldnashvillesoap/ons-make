@@ -15,15 +15,15 @@ function recipeRows() {
   if (!recipes.length) return `<tr><td colspan="9"><div class="empty-state"><span class="material-icons">menu_book</span><h3>No recipes found</h3><p>Create your first recipe formula.</p></div></td></tr>`;
   return recipes.map(r => `
     <tr class="clickable" ondblclick="openRecipeEdit('${r.id}')">
-      <td class="font-medium">${escHtml(r.name)}</td>
-      <td>${escHtml(r.category || '—')}</td>
-      <td class="text-muted">${escHtml(r.wip_product_name || '—')}</td>
-      <td class="text-muted">${escHtml(r.finished_product_name || '—')}</td>
-      <td class="font-mono">${r.yield_quantity ?? '—'} ${escHtml(r.yield_unit||'')}</td>
-      <td class="font-mono">${(r.ingredients||[]).length}</td>
-      <td class="font-mono">${fmtCur(r.estimated_batch_cost)}</td>
-      <td class="font-mono">${fmtCur(r.estimated_cost_per_unit)}</td>
-      <td><div class="actions"><button class="btn-icon" onclick="openRecipeEdit('${r.id}')" title="Edit"><span class="material-icons">edit</span></button></div></td>
+      <td class="font-medium card-title">${escHtml(r.name)}</td>
+      <td data-label="Category">${escHtml(r.category || '—')}</td>
+      <td data-label="WIP" class="text-muted">${escHtml(r.wip_product_name || '—')}</td>
+      <td data-label="Finished" class="text-muted">${escHtml(r.finished_product_name || '—')}</td>
+      <td data-label="Yield" class="font-mono">${r.yield_quantity ?? '—'} ${escHtml(r.yield_unit||'')}</td>
+      <td data-label="Ingredients" class="font-mono">${(r.ingredients||[]).length}</td>
+      <td data-label="Batch Cost" class="font-mono">${fmtCur(r.estimated_batch_cost)}</td>
+      <td data-label="Cost / Unit" class="font-mono">${fmtCur(r.estimated_cost_per_unit)}</td>
+      <td class="card-actions"><div class="actions"><button class="btn-icon" onclick="openRecipeEdit('${r.id}')" title="Edit"><span class="material-icons">edit</span></button></div></td>
     </tr>`).join('');
 }
 

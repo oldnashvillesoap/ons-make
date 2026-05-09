@@ -14,13 +14,13 @@ function txRows() {
   if (!txns.length) return `<tr><td colspan="7"><div class="empty-state"><span class="material-icons">receipt_long</span><h3>No transactions</h3><p>Inventory movements will appear here.</p></div></td></tr>`;
   return txns.map(t => `
     <tr>
-      <td class="text-muted">${escHtml(t.date || '—')}</td>
-      <td>${txTypeBadge(t.type)}</td>
-      <td class="font-medium">${escHtml(t.item_name || '—')}</td>
-      <td class="font-mono">${t.quantity ?? '—'} ${escHtml(t.unit||'')}</td>
-      <td class="font-mono">${fmtCur(t.cost_per_unit)}</td>
-      <td class="font-mono font-medium">${fmtCur(t.total_cost)}</td>
-      <td class="text-muted">${escHtml(t.reason || '—')}</td>
+      <td class="font-medium card-title">${escHtml(t.item_name || '—')}</td>
+      <td data-label="Date" class="text-muted">${escHtml(t.date || '—')}</td>
+      <td data-label="Type">${txTypeBadge(t.type)}</td>
+      <td data-label="Quantity" class="font-mono">${t.quantity ?? '—'} ${escHtml(t.unit||'')}</td>
+      <td data-label="Cost / Unit" class="font-mono">${fmtCur(t.cost_per_unit)}</td>
+      <td data-label="Total Cost" class="font-mono font-medium">${fmtCur(t.total_cost)}</td>
+      <td data-label="Reason" class="text-muted">${escHtml(t.reason || '—')}</td>
     </tr>`).join('');
 }
 

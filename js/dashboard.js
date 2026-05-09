@@ -21,20 +21,20 @@ export function renderDashboard() {
   const lowStockTableRows = items => items.length
     ? items.map(i => `
         <tr>
-          <td class="font-medium">${escHtml(i.name)}</td>
-          <td class="low-stock font-mono">${i.stock_on_hand ?? 0} ${escHtml(i.unit || '')}</td>
-          <td class="text-muted font-mono">${i.reorder_threshold ?? 0} ${escHtml(i.unit || '')}</td>
+          <td class="font-medium card-title">${escHtml(i.name)}</td>
+          <td data-label="On Hand" class="low-stock font-mono">${i.stock_on_hand ?? 0} ${escHtml(i.unit || '')}</td>
+          <td data-label="Reorder At" class="text-muted font-mono">${i.reorder_threshold ?? 0} ${escHtml(i.unit || '')}</td>
         </tr>`).join('')
     : `<tr><td colspan="3" class="text-center text-muted" style="padding:16px">None</td></tr>`;
 
   const recentRows = recent.length
     ? recent.map(b => `
         <tr>
-          <td class="font-medium">${escHtml(b.recipe_name || '—')}</td>
-          <td class="text-muted">${escHtml(b.date || '—')}</td>
-          <td>${batchStatusBadge(b.status)}</td>
-          <td class="font-mono">${b.yield_quantity ?? '—'} ${escHtml(b.yield_unit || '')}</td>
-          <td class="font-mono">${fmtCur(b.cost_per_unit)}</td>
+          <td class="font-medium card-title">${escHtml(b.recipe_name || '—')}</td>
+          <td data-label="Date" class="text-muted">${escHtml(b.date || '—')}</td>
+          <td data-label="Status">${batchStatusBadge(b.status)}</td>
+          <td data-label="Yield" class="font-mono">${b.yield_quantity ?? '—'} ${escHtml(b.yield_unit || '')}</td>
+          <td data-label="Cost / Unit" class="font-mono">${fmtCur(b.cost_per_unit)}</td>
         </tr>`).join('')
     : `<tr><td colspan="5" class="text-center text-muted" style="padding:24px">No batches yet</td></tr>`;
 
@@ -91,7 +91,7 @@ export function renderDashboard() {
       </div>
       <div class="low-stock-grid">
         <div>
-          <div class="section-title" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px">Raw Materials</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text);padding:0 0 6px 16px;margin-bottom:2px">Raw Materials</div>
           <div class="table-wrap">
             <table>
               <thead><tr><th>Item</th><th>On Hand</th><th>Reorder At</th></tr></thead>
@@ -100,7 +100,7 @@ export function renderDashboard() {
           </div>
         </div>
         <div>
-          <div class="section-title" style="font-size:0.8rem;color:var(--text-muted);margin-bottom:8px">Finished Products</div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--text);padding:0 0 6px 16px;margin-bottom:2px">Finished Products</div>
           <div class="table-wrap">
             <table>
               <thead><tr><th>Item</th><th>On Hand</th><th>Reorder At</th></tr></thead>

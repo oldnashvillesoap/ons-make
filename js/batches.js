@@ -15,15 +15,15 @@ function batchRows() {
   if (!batches.length) return `<tr><td colspan="9"><div class="empty-state"><span class="material-icons">science</span><h3>No batches found</h3><p>Record your first production run.</p></div></td></tr>`;
   return batches.map(b => `
     <tr class="clickable" ondblclick="openBatchEdit('${b.id}')">
-      <td class="font-medium">${escHtml(b.recipe_name || '—')}</td>
-      <td class="text-muted">${escHtml(b.date || '—')}</td>
-      <td class="font-mono text-muted">${batchAge(b.date)}</td>
-      <td>${batchStatusBadge(b.status)}</td>
-      <td class="font-mono text-muted">${b.scale != null ? b.scale + '×' : '1×'}</td>
-      <td class="font-mono">${b.yield_quantity ?? '—'} ${escHtml(b.yield_unit||'')}</td>
-      <td class="font-mono">${fmtCur(b.total_batch_cost)}</td>
-      <td class="font-mono">${fmtCur(b.cost_per_unit)}</td>
-      <td>
+      <td class="font-medium card-title">${escHtml(b.recipe_name || '—')}</td>
+      <td data-label="Date" class="text-muted">${escHtml(b.date || '—')}</td>
+      <td data-label="Age" class="font-mono text-muted">${batchAge(b.date)}</td>
+      <td data-label="Status">${batchStatusBadge(b.status)}</td>
+      <td data-label="Scale" class="font-mono text-muted">${b.scale != null ? b.scale + '×' : '1×'}</td>
+      <td data-label="Yield" class="font-mono">${b.yield_quantity ?? '—'} ${escHtml(b.yield_unit||'')}</td>
+      <td data-label="Batch Cost" class="font-mono">${fmtCur(b.total_batch_cost)}</td>
+      <td data-label="Cost / Unit" class="font-mono">${fmtCur(b.cost_per_unit)}</td>
+      <td class="card-actions">
         <div class="actions">
           <button class="btn-icon" onclick="openBatchEdit('${b.id}')" title="Edit"><span class="material-icons">edit</span></button>
           <button class="btn-icon danger" onclick="deleteBatch('${b.id}','${escHtml(b.recipe_name||'batch')}')" title="Delete"><span class="material-icons">delete</span></button>

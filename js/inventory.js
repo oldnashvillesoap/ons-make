@@ -17,16 +17,16 @@ function invRows() {
   if (!items.length) return `<tr><td colspan="8"><div class="empty-state"><span class="material-icons">inventory_2</span><h3>${showInactive ? 'No inactive items' : 'No items found'}</h3><p>${showInactive ? 'No deactivated materials.' : 'Add your first inventory item to get started.'}</p></div></td></tr>`;
   return items.map(i => `
     <tr class="clickable${i.active === false ? ' row-inactive' : ''}" ondblclick="${i.active === false ? '' : `openInventoryEdit('${i.id}')`}">
-      <td class="font-medium">${escHtml(i.name)}</td>
-      <td>${typeBadge(i.type)}</td>
-      <td>${escHtml(i.category || '—')}</td>
-      <td class="font-mono ${(i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0) ? 'low-stock' : ''}">
+      <td class="font-medium card-title">${escHtml(i.name)}</td>
+      <td data-label="Type">${typeBadge(i.type)}</td>
+      <td data-label="Category">${escHtml(i.category || '—')}</td>
+      <td data-label="On Hand" class="font-mono ${(i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0) ? 'low-stock' : ''}">
         ${i.stock_on_hand ?? 0} ${escHtml(i.unit || '')}
       </td>
-      <td class="font-mono text-muted">${i.reorder_threshold ?? 0} ${escHtml(i.unit || '')}</td>
-      <td class="font-mono">${fmtCur(i.cost_per_unit)}/${escHtml(i.unit||'unit')}${i.production_unit && i.production_unit !== i.unit ? `<br><span class="text-muted" style="font-size:11px">${fmtCur(i.cost_per_unit / (i.conversion_factor||1))}/${escHtml(i.production_unit)}</span>` : ''}</td>
-      <td>${escHtml(i.supplier || '—')}</td>
-      <td>
+      <td data-label="Reorder At" class="font-mono text-muted">${i.reorder_threshold ?? 0} ${escHtml(i.unit || '')}</td>
+      <td data-label="Cost" class="font-mono">${fmtCur(i.cost_per_unit)}/${escHtml(i.unit||'unit')}${i.production_unit && i.production_unit !== i.unit ? `<br><span class="text-muted" style="font-size:11px">${fmtCur(i.cost_per_unit / (i.conversion_factor||1))}/${escHtml(i.production_unit)}</span>` : ''}</td>
+      <td data-label="Supplier">${escHtml(i.supplier || '—')}</td>
+      <td class="card-actions">
         <div class="actions">
           ${i.active !== false ? `<button class="btn-icon" onclick="openInventoryEdit('${i.id}')" title="Edit"><span class="material-icons">edit</span></button>` : ''}
           <button class="btn-icon${i.active === false ? ' success' : ' warning'}" onclick="toggleInventoryActive('${i.id}',${i.active === false})" title="${i.active === false ? 'Reactivate' : 'Deactivate'}">
