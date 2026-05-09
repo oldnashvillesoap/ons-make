@@ -19,7 +19,7 @@ export function batchAge(dateStr) {
 }
 
 export function batchStatusBadge(status) {
-  const map = { in_progress: 'blue', curing: 'amber', complete: 'green', failed: 'red' };
+  const map = { planned: 'purple', in_progress: 'blue', curing: 'amber', complete: 'green', failed: 'red' };
   return `<span class="badge badge-${map[status] || 'gray'}">${escHtml(status?.replace('_',' ') || '—')}</span>`;
 }
 

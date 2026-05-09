@@ -8,24 +8,43 @@ function invValue(type) {
 }
 
 export function renderDashboard() {
-  const lowStockSort = (a, b) => (a.stock_on_hand ?? 0) - (b.stock_on_hand ?? 0) || (a.name || '').localeCompare(b.name || '');
-  const lowStockRaw  = state.inventory.filter(i => i.active !== false && i.type === 'raw_material'    && (i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0)).sort(lowStockSort);
-  const lowStockFin  = state.inventory.filter(i => i.active !== false && i.type === 'finished_product' && (i.stock_on_hand ?? 0) <= (i.reorder_threshold ?? 0)).sort(lowStockSort);
+  // Demand committed by planned + in-progress batches, converted to purchase units
+  const demandMap = {};
+  state.batches
+    .filter(b => b.status === 'planned' || b.status === 'in_progress')
+    .forEach(b => (b.ingredients || []).forEach(ing => {
+      if (!ing.item_id) return;
+      const item = state.inventory.find(i => i.id === ing.item_id);
+      const conv = item?.conversion_factor || 1;
+      demandMap[ing.item_id] = (demandMap[ing.item_id] || 0) + (ing.quantity || 0) / conv;
+    }));
+
+  const available    = i => (i.stock_on_hand ?? 0) - (demandMap[i.id] || 0);
+  const lowStockSort = (a, b) => available(a) - available(b) || (a.name || '').localeCompare(b.name || '');
+  const lowStockRaw  = state.inventory.filter(i => i.active !== false && i.type === 'raw_material'    && available(i) <= (i.reorder_threshold ?? 0)).sort(lowStockSort);
+  const lowStockFin  = state.inventory.filter(i => i.active !== false && i.type === 'finished_product' && available(i) <= (i.reorder_threshold ?? 0)).sort(lowStockSort);
   const lowStock     = [...lowStockRaw, ...lowStockFin];
-  const active       = state.batches.filter(b => b.status === 'in_progress' || b.status === 'curing');
+  const active       = state.batches.filter(b => b.status === 'planned' || b.status === 'in_progress' || b.status === 'curing');
   const recent       = [...state.batches].sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, 5);
   const rawVal       = invValue('raw_material');
   const wipVal       = invValue('wip');
   const finishedVal  = invValue('finished_product');
 
   const lowStockTableRows = items => items.length
-    ? items.map(i => `
+    ? items.map(i => {
+        const committed = demandMap[i.id] || 0;
+        const avail     = available(i);
+        const unit      = escHtml(i.unit || '');
+        return `
         <tr>
           <td class="font-medium card-title">${escHtml(i.name)}</td>
-          <td data-label="On Hand" class="low-stock font-mono">${i.stock_on_hand ?? 0} ${escHtml(i.unit || '')}</td>
-          <td data-label="Reorder At" class="text-muted font-mono">${i.reorder_threshold ?? 0} ${escHtml(i.unit || '')}</td>
-        </tr>`).join('')
-    : `<tr><td colspan="3" class="text-center text-muted" style="padding:16px">None</td></tr>`;
+          <td data-label="On Hand" class="font-mono">${i.stock_on_hand ?? 0} ${unit}</td>
+          <td data-label="Committed" class="font-mono text-muted">${committed > 0 ? +committed.toFixed(2) + ' ' + unit : '—'}</td>
+          <td data-label="Available" class="font-mono ${avail <= (i.reorder_threshold ?? 0) ? 'low-stock' : ''}">${+avail.toFixed(2)} ${unit}</td>
+          <td data-label="Reorder At" class="font-mono text-muted">${i.reorder_threshold ?? 0} ${unit}</td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="5" class="text-center text-muted" style="padding:16px">None</td></tr>`;
 
   const recentRows = recent.length
     ? recent.map(b => `
@@ -92,7 +111,7 @@ export function renderDashboard() {
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Item</th><th>On Hand</th><th>Reorder At</th></tr></thead>
+            <thead><tr><th>Item</th><th>On Hand</th><th>Committed</th><th>Available</th><th>Reorder At</th></tr></thead>
             <tbody>${lowStockTableRows(lowStockRaw)}</tbody>
           </table>
         </div>
@@ -104,7 +123,7 @@ export function renderDashboard() {
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Item</th><th>On Hand</th><th>Reorder At</th></tr></thead>
+            <thead><tr><th>Item</th><th>On Hand</th><th>Committed</th><th>Available</th><th>Reorder At</th></tr></thead>
             <tbody>${lowStockTableRows(lowStockFin)}</tbody>
           </table>
         </div>

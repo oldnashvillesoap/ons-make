@@ -43,7 +43,8 @@ export function renderBatches() {
         <div class="toolbar-filters">
           <select onchange="onBatchFilter(this.value)">
             <option value="">All statuses</option>
-            <option value="in_progress" ${state.batchFilter==='in_progress'?'selected':''}>In Progress</option>
+            <option value="planned"      ${state.batchFilter==='planned'?'selected':''}>Planned</option>
+          <option value="in_progress" ${state.batchFilter==='in_progress'?'selected':''}>In Progress</option>
             <option value="curing"      ${state.batchFilter==='curing'?'selected':''}>Curing</option>
             <option value="complete"    ${state.batchFilter==='complete'?'selected':''}>Complete</option>
             <option value="failed"      ${state.batchFilter==='failed'?'selected':''}>Failed</option>
@@ -132,6 +133,7 @@ function batchForm(b) {
       <div class="form-group">
         <label>Status</label>
         <select id="f-status">
+          <option value="planned"     ${d.status==='planned'||!d.status?'selected':''}>Planned</option>
           <option value="in_progress" ${d.status==='in_progress'?'selected':''}>In Progress</option>
           <option value="curing"      ${d.status==='curing'?'selected':''}>Curing</option>
           <option value="complete"    ${d.status==='complete'?'selected':''}>Complete</option>
@@ -210,7 +212,7 @@ async function saveBatch(id) {
   const finishedId = document.querySelector('#ss-finished .ss-value')?.value || '';
   const newStatus  = document.getElementById('f-status')?.value;
   const oldBatch   = id ? state.batches.find(x => x.id === id) : null;
-  const oldStatus  = oldBatch?.status || 'in_progress';
+  const oldStatus  = oldBatch?.status || 'planned';
   const wasLocked  = oldBatch?.ingredients_locked || false;
 
   let ingredients;
@@ -264,7 +266,7 @@ async function saveBatch(id) {
 
     let inventoryChanged = false;
 
-    if (oldStatus === 'in_progress' && newStatus === 'curing') {
+    if ((oldStatus === 'planned' || oldStatus === 'in_progress') && newStatus === 'curing') {
       await deductBatchIngredients(ingredients, batchId, now);
       if (wipItem) await recordItemTransaction('addition', wipId, wipItem.name, wipItem.unit || 'batch', scale, wipCostPerUnit, 'wip – batch curing', batchId, now);
       inventoryChanged = true;
@@ -278,7 +280,7 @@ async function saveBatch(id) {
       if (finishedItem) await recordItemTransaction('addition',  finishedId, finishedItem.name, finishedItem.unit || yieldUnit,     yieldQty,     finCpu,       'production complete', batchId, now);
       inventoryChanged = true;
     }
-    if (oldStatus === 'in_progress' && newStatus === 'complete') {
+    if ((oldStatus === 'planned' || oldStatus === 'in_progress') && newStatus === 'complete') {
       await deductBatchIngredients(ingredients, batchId, now);
       if (finishedItem) await recordItemTransaction('addition', finishedId, finishedItem.name, finishedItem.unit || yieldUnit, yieldQty, finishedCostPerUnit, 'production complete', batchId, now);
       inventoryChanged = true;
